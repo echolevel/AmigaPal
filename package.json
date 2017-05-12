@@ -37,7 +37,7 @@
         "owner": "echolevel",
         "name": "AmigaPal",
         "draft": false,
-        "prerelease": false
+        "prerelease": true
       },
       "windowsStoreConfig": {
         "packageName": "",
