@@ -28,12 +28,12 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
   };
 
-  $scope.working = false;
-  $scope.foundsox = false;
+  $scope.working = false; // To disable the convert button while a batch is running
+  $scope.foundsox = false;  // Set to true later if sox path is given and a test soxi command works
 
   $scope.chooseDir = function () {
-    //document.getElementById('selected_dir').click();
-    dialog.showOpenDialog({
+
+  dialog.showOpenDialog({
       properties: ['openDirectory']
     }, function (dirpath) {
       $scope.options.defaultdir = dirpath[0];
@@ -53,11 +53,14 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   $scope.loadDir = function () {
 
+    // Fired either on startup, if there's a saved path in localstorage, or by the select folder button
+    
     var dirpath = $scope.options.defaultdir;
 
     if(dirpath.length > 0) {
       fs.readdir(dirpath, function(err,dir) {
         dir.filter(function(filename) {
+          // We only want these. Everything else either won't work (ogg, for some reason) or is too ridiculously obscure even for an Amiga tool...
           return filename.match(/(\.aiff$)|(\.aif$)|(\.wav$)|(\.raw$)|(\.mp3$)/i);
         }).forEach(function(filename) {
         var pathname = dirpath + '/' + filename;
@@ -70,6 +73,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   if (!localStorage.getItem('config')) {
     console.log("No local storage found");
+    // A load of defaults; mostly my own preferred Protracker sample conversion settings.
     var options = {
       normalise: true,
       dither: false,
@@ -108,6 +112,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   $scope.files = [];
 
   function soxCheck() {
+    // Is sox installed? Reachable? It should be in the same place as soxi, and soxi gets used first, so we check that first.
     exec($scope.options.soxpath + 'sox', function(error, stdout, stderr) {
       if (!error) {
         $scope.foundsox = true;
@@ -122,14 +127,18 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   }
 
   function soxInfo(input, opt, callback) {
+    // General purpose wrapper, used for file object creation on loading
     exec($scope.options.soxpath + 'soxi ' + opt + ' "' + input + '"', function (error, stdout, stderr) {
       callback(error, stdout.replace(/\r?\n|\r/g, ''), stderr);
     });
   }
 
   function soxProcess(input, inputdir, fname, opt, output, effects, callback) {
+    // Here's where we do the actual thing that this app is for
     
     var outfile = "";
+    
+    // Append the output filename
     if($scope.options.append_type == "suffix") {
         outfile = fname.substring(0, fname.lastIndexOf('.')) + $scope.options.fname_append + '.wav';
         console.log("It's a suffix");
@@ -137,27 +146,30 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
         outfile = $scope.options.fname_append + fname;
         console.log("It's a prefix");
     }
-    console.log("OUTPUTDIR LENGTH: " + $scope.options.outputdir);
+
+    // Using path.join in the hope that it keeps things largely platform-agnostic. Not sure how Windows will behave yet, but it's supposed to recognise / as well as \
     if(typeof $scope.options.outputdir != 'undefined' && $scope.options.outputdir.length > 1 ) {
       output = path.join($scope.options.outputdir, outfile);
     } else {
       output = path.join(inputdir, outfile);
     }
-    console.log("OUTPUT: " + output);
-    
+
+    // Now we actually call actual sox, with our actual sox options and whatnot
     exec($scope.options.soxpath + 'sox "' + input + '" ' + opt + ' "' + output + '" ' + effects, function (error, stdout, stderr) {
-          callback(error, stdout, stderr);
-        });
+      callback(error, stdout, stderr);
+    });
     
   }
 
   $scope.removeFile = function(i) {
     $scope.files.splice(i, 1);
-    //$scope.$apply();
+
   }
 
   $scope.$watch('options', function () {
-    // Always watch for changes to options, and update localstorage
+    
+    // Always watch for changes to options, and update localstorage and for other general purpose updates
+    
     localStorage.setItem('config', JSON.stringify($scope.options));
 
     for (var i in $scope.files) {
@@ -166,8 +178,11 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     
   }, true);
 
-  $scope.$watch(function () {
 
+  $scope.$watch(function () {
+    
+    // Not sure how efficient it is, but it's a good way to update target filesize and duration on the fly
+    
     if ($scope.files.length > 0) {
       //console.log("Updating target filesize");
       for (var i in $scope.files) {
@@ -201,7 +216,10 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   $scope.$on('ngRepeatFinished', function (ngRepeatFinishedEvent) {});
 
+
   var drawAudio = function drawAudio(i) {
+
+    // All the unattached HTML5 media audio elements we created on load are grabbed here by XHR and fed into Web Audio API buffers so we can get the audio data for waveform drawing
 
     var xhr = new XMLHttpRequest();
     xhr.open('GET', 'file://' + $scope.files[i].fullpath, true);
@@ -234,20 +252,16 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           context.fillRect(k, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
         }
 
-        // Don't see how this can work for me without some kind of currentTime event :(
-        // HTML5 Audio element has this, but it's irregular and inaccurate.
-        /*
-        var source = audioContext.createBufferSource();
-                  source.buffer = buffer;
-                  source.connect(audioContext.destination);
-                  $scope.files[i].player = source;
-                  console.log($scope.files[i].player);*/
       });
     };
     xhr.send();
+    
   };
 
   $scope.processItem = function (idx, cb) {
+    
+    // Prepare a conversion, arranging all the option switches and effects arguments that sox needs
+    
     var dither, normalise;
     if ($scope.options.dither) {
       dither = "";
@@ -271,9 +285,10 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
         console.log(stderr);
         var errortext = error + " ";
         if(errortext.indexOf('permission') > -1) {
-          //          
+                    
           console.log("Refused to overwrite source or existing file");
           alert("SoX --no-clobber option enabled: refused to overwrite existing file");
+          // Reenable the Convert button/s after a success or failure. If it failed once it'll probably also fail the next time, but people should at least be given the illusion of hope...
           $scope.files[idx].processing = false;
           $scope.files[idx].buttontext = "Convert";
         } else {
@@ -293,8 +308,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   };
 
   $scope.playerControl = function (idx) {
-    //var player = document.getElementById('audio-'+idx);
-    //player.play();
+
     if ($scope.files[idx].player.paused) {
       $scope.files[idx].player.play();
     } else {
@@ -307,6 +321,10 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       $scope.processItem(i, function (msg) {
         console.log("File " + msg + " successfully converted");
         if (i == msg) {
+          // Theoretically only fires after the entire job is done, but I'm terrible with promises and stuff.
+          // Entirely possible that it triggers after all sox jobs have been *started*, but that they might continue 
+          // in the background for quite a while if the files are big. For most oldschool (tracker/sampler) purposes,
+          // the samples will be so tiny that a modern computer will let sox convert them nearly instantaneously.
           alert("All done!");
         }
       });
@@ -330,6 +348,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           for (var i = 0, path; path = dir[i]; i++) {
             // do stuff with path
 
+            // Not currently using the extension filter stuff; may add it back in future.
             if ($scope.options.filterext.length > 0 || $scope.options.filterext != '*') {
               if (path.indexOf($scope.options.filterext) > -1 || path.indexOf($scope.options.filterext.toUpperCase()) > -1 || path.indexOf($scope.options.filterext.toLowerCase()) > -1) {
                 createItem(files[0].path + '/' + path);
@@ -398,6 +417,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       }
     };
 
+    // Populate a load of those fields with soxi output
+
     soxInfo(inpath, '-t', function (error, stdout, stderr) {
       console.log(stdout);
       if (!error) {
@@ -440,6 +461,9 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       }
     });
     $timeout(function () {
+      
+      // The last of the soxi calls, then a bit of maths to work out some more things
+      
       soxInfo(inpath, '-D', function (error, stdout, stderr) {
         console.log(stdout);
         if (!error) {
@@ -457,6 +481,9 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
     //console.log(tmpfile);
     $timeout(function () {
+      
+      // Push our file into the list, then go back and create an audio player and a range slider for it
+      
       var opt = {};
       //console.log(tmpfile);
       $scope.files.push(tmpfile);
@@ -484,11 +511,6 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           }, 30);
         }
       };
-      /*
-      $scope.files[i].player.ended = function () {
-              $scope.files[i].player.isPlaying = false;
-              console.log("ended");
-            };*/
       
 
       drawAudio($scope.files.length - 1);

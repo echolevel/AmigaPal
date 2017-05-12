@@ -33,6 +33,8 @@ Installation
 
 As long as you've got SoX installed, and can find the path to the sox binary, you should be all set. 
 
+soxi is also used to gather initial source file info, calculate target size/duration, and draw the waveform; it *should* be in the same directory as sox got installed to.
+
 More Info
 --------- 
 
