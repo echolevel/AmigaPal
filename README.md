@@ -34,7 +34,7 @@ Installation
 As long as you've got SoX installed, and can find the path to the sox binary, you should be all set. 
 
 More Info
---------- 
+---------
 
 I'm sure there's more stuff that should be here. I'll add as I go. Meanwhile, an explanation of why AmigaPal: I made this for myself, to speed up converting audio samples into the format
 I generally use in Protracker on the Amiga. They need to be mono, 8bit, and usually I want the samplerate to be 11025Hz. Adobe Audition doesn't get it quite right,
