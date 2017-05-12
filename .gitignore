@@ -1,2 +1,5 @@
 node_modules
 out
+.DS_Store
+soxbin
+src/bower_components
