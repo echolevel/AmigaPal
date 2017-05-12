@@ -6,7 +6,8 @@ samplers, and similar obscure/obsolete purposes. Fundamentally a cross-platform 
 
 ![AmigaPal screenshot](./screenshot.png "AmigaPal screenshot")
 
-##Features: 
+Features: 
+---------
 
 * Built with Electron, so should run on MacOS, Windows and Linux
 * Drag and drop files to load, or load an entire directory for batch conversion
@@ -27,11 +28,13 @@ samplers, and similar obscure/obsolete purposes. Fundamentally a cross-platform 
 * If you've got a big list of files but want different settings for each of them, just tweak the settings between conversions - they all take immediate effect on any subsequent conversions
 * The 'Convert All' button does exactly what you think it does. Be sure that's what you want before clicking it with a huge folder of samples loaded up...
 
-##Installation
+Installation
+------------
 
 As long as you've got SoX installed, and can find the path to the sox binary, you should be all set. 
 
-##More Info
+More Info
+---------
 
 I'm sure there's more stuff that should be here. I'll add as I go. Meanwhile, an explanation of why AmigaPal: I made this for myself, to speed up converting audio samples into the format
 I generally use in Protracker on the Amiga. They need to be mono, 8bit, and usually I want the samplerate to be 11025Hz. Adobe Audition doesn't get it quite right,
