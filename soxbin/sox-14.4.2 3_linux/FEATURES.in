@@ -1,0 +1,145 @@
+The current release handles the following audio file formats:
+(:table border=0:)
+(:cellnr:)
+* Raw files in various binary formats
+* Raw textual data
+* Amiga 8svx files
+* Apple/SGI AIFF files
+* SUN .au files
+** PCM, u-law, A-law
+** G7xx ADPCM files (read only)
+** mutant DEC .au files
+** NeXT .snd files
+* AVR files
+* CDDA (Compact Disc Digital Audio format)
+* CVS and VMS files (continuous variable slope)
+* Grandstream ring-tone files
+* GSM files
+* HTK files
+* LPC-10 files
+* Macintosh HCOM files
+* Amiga MAUD files
+* AMR-WB & AMR-NB (with optional libamrwb & libamrnb libraries)
+* MP2/MP3 (with optional libmad, libtwolame and libmp3lame libraries)
+* Opus files (read only; with optional Opus libraries)
+(:cell:)
+* Ogg Vorbis files (with optional Ogg Vorbis libraries)
+* FLAC files (with optional libFLAC)
+* IRCAM SoundFile files
+* NIST SPHERE files
+* Turtle beach SampleVision files
+* Sounder & Soundtool (DOS) files
+* Yamaha TX-16W sampler files
+* SoundBlaster .VOC files
+* Dialogic/OKI ADPCM files (.VOX)
+* Microsoft .WAV files
+** PCM, floating point
+** u-law, A-law, MS ADPCM, IMA (DMI) ADPCM
+** GSM
+** RIFX (big endian)
+* WavPack files (with optional libwavpack library)
+* Psion (palmtop) A-law WVE files and Record voice notes
+* Maxis XA Audio files
+** EA ADPCM (read support only, for now)
+* Pseudo formats that allow direct playing/recording from most audio devices
+* The "null" pseudo-file that reads and writes from/to nowhere
+(:tableend:)
+
+The audio effects/tools included in this release are as follows:
+
+* Tone/filter effects
+** allpass: RBJ all-pass biquad IIR filter
+** bandpass: RBJ band-pass biquad IIR filter
+** bandreject: RBJ band-reject biquad IIR filter
+** band: SPKit resonator band-pass IIR filter
+** bass: Tone control: RBJ shelving biquad IIR filter
+** equalizer: RBJ peaking equalisation biquad IIR filter
+** firfit+: FFT convolution FIR filter using given freq. response (W.I.P.)
+** highpass: High-pass filter: Single pole or RBJ biquad IIR
+** hilbert: Hilbert transform filter (90 degrees phase shift)
+** lowpass: Low-pass filter: single pole or RBJ biquad IIR
+** sinc: Sinc-windowed low/high-pass/band-pass/reject FIR
+** treble: Tone control: RBJ shelving biquad IIR filter
+
+* Production effects
+** chorus: Make a single instrument sound like many
+** delay: Delay one or more channels
+** echo: Add an echo
+** echos: Add a sequence of echos
+** flanger: Stereo flanger
+** overdrive: Non-linear distortion
+** phaser: Phase shifter
+** repeat: Loop the audio a number of times
+** reverb: Add reverberation
+** reverse: Reverse the audio (to search for Satanic messages ;-)
+** tremolo: Sinusoidal volume modulation
+
+* Volume/level effects
+** compand: Signal level compression/expansion/limiting
+** contrast: Phase contrast volume enhancement
+** dcshift: Apply or remove DC offset
+** fade: Apply a fade-in and/or fade-out to the audio
+** gain: Apply gain or attenuation; normalise/equalise/balance/headroom
+** loudness: Gain control with ISO 226 loudness compensation
+** mcompand: Multi-band compression/expansion/limiting
+** norm: Normalise to 0dB (or other)
+** vol: Adjust audio volume
+
+* Editing effects
+** pad: Pad (usually) the ends of the audio with silence
+** silence: Remove portions of silence from the audio
+** splice: Perform the equivalent of a cross-faded tape splice
+** trim: Cuts portions out of the audio
+** vad: Voice activity detector
+
+* Mixing effects
+** channels: Auto mix or duplicate to change number of channels
+** divide+: Divide sample values by those in the 1st channel (W.I.P.)
+** remix: Produce arbitrarily mixed output channels
+** swap: Swap pairs of channels
+
+* Pitch/tempo effects
+** bend: Bend pitch at given times without changing tempo
+** pitch: Adjust pitch (= key) without changing tempo
+** speed: Adjust pitch & tempo together
+** stretch: Adjust tempo without changing pitch (simple alg.)
+** tempo: Adjust tempo without changing pitch (WSOLA alg.)
+
+* Mastering effects
+** dither: Add dither noise to increase quantisation SNR
+** rate: Change audio sampling rate
+
+* Specialised filters/mixers
+** deemph: ISO 908 CD de-emphasis (shelving) IIR filter
+** earwax: Process CD audio to best effect for headphone use
+** noisered: Filter out noise from the audio
+** oops: Out Of Phase Stereo (or `Karaoke') effect
+** riaa: RIAA vinyl playback equalisation
+
+* Analysis `effects'
+** noiseprof: Produce a DFT profile of the audio (use with noisered)
+** spectrogram: graph signal level vs. frequency & time (needs `libpng')
+** stat: Enumerate audio peak & RMS levels, approx. freq., etc.
+** stats: Multichannel aware `stat'
+
+* Miscellaneous effects
+** ladspa: Apply LADSPA plug-in effects e.g. CMT (Computer Music Toolkit)
+** synth: Synthesise/modulate audio tones or noise signals
+** newfile: Create a new output file when an effects chain ends.
+** restart: Restart 1st effects chain when multiple chains exist.
+
+* Low-level signal processing effects
+** biquad: 2nd-order IIR filter using externally provided coefficients
+** downsample: Reduce sample rate by discarding samples
+** fir: FFT convolution FIR filter using externally provided coefficients
+** upsample: Increase sample rate by zero stuffing
+
+  + Experimental or incomplete effect; may change in future.
+
+Multiple audio files can be combined (and then further processed with
+effects) using any one of the following combiner methods:
+
+* concatenate
+* mix
+* merge: E.g. two mono files to one stereo file
+* sequence: For playing multiple audio files/streams

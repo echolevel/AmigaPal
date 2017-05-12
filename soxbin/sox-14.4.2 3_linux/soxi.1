@@ -1,0 +1,123 @@
+'\" t
+'\" The line above instructs most `man' programs to invoke tbl
+'\"
+'\" Separate paragraphs; not the same as PP which resets indent level.
+.de SP
+.if t .sp .5
+.if n .sp
+..
+'\"
+'\" Replacement em-dash for nroff (default is too short).
+.ie n .ds m " - 
+.el .ds m \(em
+'\"
+'\" Placeholder macro for if longer nroff arrow is needed.
+.ds RA \(->
+'\"
+'\" Decimal point set slightly raised
+.if t .ds d \v'-.15m'.\v'+.15m'
+.if n .ds d .
+'\"
+'\" Enclosure macro for examples
+.de EX
+.SP
+.nf
+.ft CW
+..
+.de EE
+.ft R
+.SP
+.fi
+..
+.TH SoXI 1 "February 1, 2013" "soxi" "Sound eXchange"
+.SH NAME
+SoXI \- Sound eXchange Information, display sound file metadata
+.SH SYNOPSIS
+\fBsoxi\fR [\fB\-V\fR[\fIlevel\fR]] [\fB\-T\fR] [\fB\-t\fR\^|\^\fB\-r\fR\^|\^\fB\-c\fR\^|\^\fB\-s\fR\^|\^\fB\-d\fR\^|\^\fB\-D\fR\^|\^\fB\-b\fR\^|\^\fB\-B\fR\^|\^\fB\-p\fR\^|\^\fB\-e\fR\^|\^\fB\-a\fR] \fIinfile1\fR ...
+.SH DESCRIPTION
+Displays information from the header of a given audio file or files.
+Supported audio file types are listed and described in
+.BR soxformat (7).
+Note however, that
+.B soxi
+is intended for use only with audio files with a self-describing header.
+.SP
+By default, as much information as is available is shown.
+An option may be given to select just a single piece of information
+(perhaps for use in a script or batch-file).
+.SH OPTIONS
+.TP
+\fB\-V\fR
+Set verbosity. See
+.BR sox (1)
+for details.
+.TP
+\fB\-T\fR
+Used with multiple files; changes the behaviour of
+.BR \-s ,
+.B \-d
+and
+.B \-D
+to display the total across all given files.
+Note that when used with
+.B \-s
+with files with different sampling rates, this is of questionable value.
+.TP
+\fB\-t\fR
+Show detected file-type.
+.TP
+\fB\-r\fR
+Show sample-rate.
+.TP
+\fB\-c\fR
+Show number of channels.
+.TP
+\fB\-s\fR
+Show number of samples (0 if unavailable).
+.TP
+\fB\-d\fR
+Show duration in hours, minutes and seconds (0 if unavailable).
+Equivalent to number of samples divided by the sample-rate.
+.TP
+\fB\-D\fR
+Show duration in seconds (0 if unavailable).
+.TP
+\fB\-b\fR
+Show number of bits per sample (0 if not applicable).
+.TP
+\fB\-B\fR
+Show the bitrate averaged over the whole file (0 if unavailable).
+.TP
+\fB\-p\fR
+Show estimated sample precision in bits.
+.TP
+\fB\-e\fR
+Show the name of the audio encoding.
+.TP
+\fB\-a\fR
+Show file comments (annotations) if available.
+.SH BUGS
+Please report any bugs found in this version of SoX to the mailing list
+(sox-users@lists.sourceforge.net).
+.SH SEE ALSO
+.BR sox (1),
+.BR soxformat (7),
+.BR libsox (3)
+.SP
+The SoX web site at http://sox.sourceforge.net
+.SH LICENSE
+Copyright 2008\-2013 by Chris Bagwell and SoX Contributors.
+.SP
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+.SP
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+.SH AUTHORS
+Chris Bagwell (cbagwell@users.sourceforge.net).
+Other authors and contributors are listed in the ChangeLog file that
+is distributed with the source code.

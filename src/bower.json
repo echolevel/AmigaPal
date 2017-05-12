@@ -1,0 +1,28 @@
+{
+  "name": "amigapal",
+  "description": "",
+  "main": "renderer.js",
+  "authors": [
+    "echolevel <echolevel@gmail.com>"
+  ],
+  "license": "MIT",
+  "homepage": "",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "angular": "^1.6.4",
+    "bootstrap": "4.0.0-alpha.6",
+    "font-awesome": "^4.7.0",
+    "electangular": "develephant/electangular",
+    "angularjs-slider": "^6.1.1",
+    "angular-animate": "^1.6.4",
+    "angular-bootstrap": "^2.5.0",
+    "angular-touch": "^1.6.4"
+  }
+}

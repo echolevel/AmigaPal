@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>AmigaPal</title>
+    
+    <link href="bower_components/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="bower_components/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="bower_components/angularjs-slider/dist/rzslider.css">
+    <link rel="stylesheet" href="bower_components/angular-bootstrap/ui-bootstrap-csp.css"></script>
+    <!--<link href="css/style.css" rel="stylesheet">-->
+    <style type="text/css">
+      html {
+        height: 100%;
+      }
+      body {
+        padding: 20px;
+        background-color: #f5f5f4;
+        font-family: system,-apple-system,".SFNSDisplay-Regular","Helvetica Neue",Helvetica,"Segoe UI",sans-serif !important;
+        font-size: 13px;
+        height: 100%;
+        width: 100%;
+      }
+      input[type="text"], input[type="number"], select, button, input[type="radio"], input[type="checkbox"], textarea {
+      outline: none;
+      box-shadow:none !important;
+      }
+      
+      input[type="text"], input[type="number"], select, input[type="radio"], input[type="checkbox"], textarea {
+      border:1px solid #ccc !important;
+      }
+      
+      .mainwrap {
+        margin: 0 auto;
+      }
+      
+      .dropzone {
+        width: 100%;
+        height: 465px;
+        border: dashed 8px #999;
+        border-radius: 30px;
+        display: table;
+      }
+      .dropzone .droptext {
+        display: table-cell;
+        text-align: center;
+        vertical-align: middle;
+      }
+      
+      .filelist {
+        width: 100%;
+        margin: 0 auto;
+      }
+      
+      .btn-toolbar {
+        padding-bottom: 8px;
+      }
+        
+      .global-options {
+
+      }
+      
+      .fileitem {
+        padding-top: 6px; 
+        padding-bottom: 6px; 
+        min-width: 100%
+      }
+      
+      .fileitem:nth-child(odd){
+        background-color: #e8e8e8;
+      }
+      
+      .custom-slider.rzslider .rz-bar {
+        background: #999;
+        height: 2px;
+      }
+      .custom-slider.rzslider .rz-selection {
+        background: #555;
+      }
+
+      .custom-slider.rzslider .rz-pointer {
+        width: 8px;
+        height: 16px;
+        top: auto; /* to remove the default positioning */
+        bottom: 0;
+        background-color: #333;
+        border-top-left-radius: 3px;
+        border-top-right-radius: 3px;
+      }
+      
+      .custom-slider.rzslider .rz-pointer:focus {
+        outline: none;
+      }
+
+      .custom-slider.rzslider .rz-pointer:after {
+        display: none;
+      }
+
+      .custom-slider.rzslider .rz-bubble {
+        bottom: 14px;
+      }
+
+      .custom-slider.rzslider .rz-limit {
+        font-weight: bold;
+        color: #555;
+      }
+
+      .custom-slider.rzslider .rz-tick {
+        width: 1px;
+        height: 10px;
+        margin-left: 4px;
+        border-radius: 0;
+        background: #999;
+        top: -1px;
+      }
+
+      .custom-slider.rzslider .rz-tick.rz-selected {
+        background: #555;
+      }
+      
+      
+      .custom-slider2.rzslider {
+        margin-top: 14px;        
+      }
+      .custom-slider2.rzslider .rz-bar {
+        background: #999;
+        height: 2px;
+      }
+      .custom-slider2.rzslider .rz-selection {
+        background: #555;
+      }
+
+      .custom-slider2.rzslider .rz-pointer {
+        width: 11px;
+        height: 11px;
+        top: -5px; /* to remove the default positioning */
+
+        background-color: #333;
+/*
+        border-top-left-radius: 3px;
+        border-top-right-radius: 3px;*/
+
+      }
+
+      .custom-slider2.rzslider .rz-pointer:focus {
+        outline: none;
+      }
+
+      .custom-slider2.rzslider .rz-pointer:after {
+        display: none;
+      }
+
+      .custom-slider2.rzslider .rz-bubble {
+        bottom: 14px;
+      }
+
+      .custom-slider2.rzslider .rz-limit {
+        font-weight: bold;
+        color: #555;
+      }
+      
+      .custom-slider2.rzslider .rz-limit, .custom-slider2.rzslider .rz-floor {
+        display: none;
+      } 
+      
+      .custom-slider2.rzslider .rz-bubble {
+        display: none;
+      }
+
+      .custom-slider2.rzslider .rz-tick {
+        width: 1px;
+        height: 10px;
+        margin-left: 4px;
+        border-radius: 0;
+        background: #999;
+        top: -1px;
+      }
+
+      .custom-slider2.rzslider .rz-tick.rz-selected {
+        background: #555;
+      }
+      
+    </style>
+  </head>
+  <body ng-app="mainApp" ng-controller="MainCtrl">
+    <div class="mainwrap" style="max-width: 900px">
+      <button type="button" class="btn btn-sm btn-primary pull-right" data-toggle="collapse" data-target="#guide">?</button>
+      <br>
+      <div class="row collapse" id="guide">
+        <div class="col-sm-12">          
+          
+          <p>
+            <h4>README</h4>
+            <ul>
+              <li>
+                <strong>Important: </strong> on first run you'll need to set the path of the SoX executable on your system. Which means if SoX isn't installed, you should install it. There's a Windows installer on the site (Google it), and on Mac you can use Homebrew ('brew install sox' in a Terminal). For Linux you can most likely get it from your repo manager. Enter the FULL path with a trailing slash (e.g. "/usr/local/bin/"), 
+                then close and restart AmigaPal. To find the path on Mac or Linux, open a Terminal and do 'type -a sox'. Copy up to and including the final slash (not the 'sox' bit) and paste that in AmigaPal. Windows, I dunno - probably in Program Files or something. Been a while since I used Windows.
+              </li>
+              <li>
+                "Why is it called AmigaPal?" - I made this for myself, to speed up converting audio samples into the format
+                I generally use in Protracker on the Amiga. They need to be mono, 8bit, and usually I want the samplerate to be 11025Hz. Adobe Audition doesn't get it quite right,
+                nor do many other full-scale editors; Renoise does it exactly the way I want, but that can be a pain to use on lots of small samples. With h0ffman and kebby's help,
+                I worked out the right SoX commands for what I wanted (--no-dither was the key).
+                So it's a helper tool (hence pal), plus I grew up on PAL-region Amigas (hence pal), plus I like the redundancy of Amiga (friend) and Pal (friend).
+                Plus I couldn't think of anything snappier to call it.
+              </li>
+              <li>
+                "Is it just for Amiga?" - by no means. As soon as I shared a video demo a few days ago, people started saying they'd use it to
+                prepare samples for Akai MPCs and other stuff, or just as a general sample editing/formatting utility. So you can bypass
+                the mono mixdown and leave channels the same as in the source file, and there's hopefully enough flexibility for most target hardware. I'm
+                open to some feature requests, but by and large, anything moderately fancier is probably a job for your full-scale audio editing suite.
+              </li>
+              <li>
+                "Why won't it work?" - no idea, but the most likely thing is that you've not installed SoX, or that SoX isn't available in your default shell path.
+                Test this by opening a terminal or command prompt and typing 'sox'. I might try bundling the SoX executable into the app in future.
+              </li>
+              <li>
+                Drop audio files or folder onto the app to load, or navigate to a folder. 
+              </li>
+              <li>
+                Target duration is affected by the semitone transpose, as this (deliberately) lengthens or shortens the sample.
+              </li>
+              <li>
+                Target filesize is an estimate, but should be pretty close for most samples. 128kb is the largest sample the MOD format supports, 
+                and most trackers and modern replayers won't have a problem with that. Remember, though, that the most popular Amiga ASM replayer code believes 64kb to be the maximum, so will freak out.
+              </li>
+              <li>
+                L + R mixes both stereo channels to one; L or R use either. If your input file has more than 2 channels, L + R should still mix to mono.
+              </li>
+              <li>
+                If Mono is unticked, Mixdown is disabled and the output file's channels will be the same as in the source file.
+              </li>
+              <li>
+                The waveform view is a good guideline, but not precisely accurate: use your EARS to make sure a trim range is correct, as what you hear is what's saved.
+              </li>
+              <li>
+                The defaults are recommended for converting most types of audio file for use in Protracker. 
+              </li>
+              <li>
+                Dithering is usually best left disabled. 
+              </li>
+              <li>
+                Global options are saved automatically for next time.
+              </li>
+              <li>  
+                The extension filter is used when scanning a folder of files to load - leave it blank to load all filetypes. 
+              </li>
+              <li>
+                Append adds a prefix or suffix to converted file's names.
+              </li>
+              <li>
+                Batch Convert does what you think it does. Be sure that's what you want before clicking it with a huge folder of samples loaded.
+              </li>
+              <li>
+                If you've loaded a bunch of files but want different output settings for them, no problem: convert them individually, changing the global options between each conversion. The current options are always the ones used at the time you click Convert.
+              </li>
+            </ul>
+            <br>
+          </p>
+          <br>
+          <p>
+            <h4>TO DO: </h4>
+            <ul>
+              <li>
+                Test Windows
+              </li>
+              <li>
+                Bundle sox binary, get exec to call a built-in path?
+              </li>
+              <li>
+                Configurable (and ignorable) output folder. By default, all converted files are placed in the same directory as the source file.
+              </li>
+              <li>
+                Longer term, it'd be nice to do all the audio in Web Audio API's audioContext so you can preview the mono mixdown, transpose and samplerate.
+                I'm actually using it to draw the waveform, so I've got the buffer already, but I'm not yet sure how to accurately determine current playing time (there's
+                no built-in event for it). So the playback is from players created as invisible HTML5 Audio elements - which more easily offer current playback time,
+                but don't do proper samplerate adjustment (they do timestretching to keep the pitch the same at different playback speeds - cool I guess, but I'd like to have
+                the simple option as well).
+              </li>
+            </ul>
+          </p>
+          <br><br>
+        </div>
+      </div>
+
+
+      <div class="row global-options">            
+        
+        <div class="col-12">
+
+        </div>
+              
+        
+              
+            
+
+            
+         <div class="col-4">                 
+           
+           <div class="form-group row">
+             <label class="col-5 col-form-label">Samplerate</label>
+             <div class="col-7 input-group input-group-sm" >
+               <input class="form-control" type="number" value="0" min="0" step="1" ng-model="options.samplerate">
+               <div class="input-group-addon">Hz</div>
+             </div>
+           </div>
+           
+            <div class="form-group row">
+              <label class="col-5 col-form-label">Mixdown</label>
+              <div class="col-7  input-group input-group-sm">                
+                <select class="input-group-addon custom-select" ng-model="options.mixdown" ng-disabled="!options.mono_enabled" style="min-width: 100%"> 
+                  <option value="'-'">L + R</option>
+                  <option value="'1'">Left</option>
+                  <option value="'2'">Right</option>
+                </select>
+              </div>
+              <label class="col-7 offset-md-5 col-form-label">
+                Disable with 'Mono'
+              </label>
+            </div>
+
+           
+            <div class="form-group row">
+              <label class="col-5 col-form-label">Transpose</label>
+              <div class="col-7 input-group input-group-sm">
+                <input class="form-control" type="number" value="0" step="1" ng-model="options.transpose">
+              </div>
+              <label class="col-7 offset-md-5 col-form-label">
+                100 = 1 semitone
+              </label>
+            </div>
+            
+              
+            
+        </div>
+        
+        <div class="col-4">          
+        
+          
+            <div class="form-group row">
+              <label class="col-3 col-form-label">Input</label>
+              <div class="col-9  input-group input-group-sm">
+                <span class="input-group-btn">
+                  <button type="button" class="btn btn-sm btn-default" ng-click="chooseDir();"><i class="fa fa-folder-open"></i></button>
+                  <input id="selected_dir" class="form-control" name="selecteddir" type="file" webkitdirectory style="display:none" />
+                </span>
+                <input type="text" class="form-control" placeholder="Path..."  ng-model="options.defaultdir">                    
+              </div>
+            </div>
+        
+            <!--<div class="form-group row">
+              <label class="col-3 col-form-label">Filter</label>
+              <div class="col-9  input-group input-group-sm">
+                <input class="form-control" type="text" placeholder=".wav" ng-model="options.filterext">
+              </div>
+              <label class="col-9 offset-md-3 col-form-label">
+                <span ng-if="options.filterext.length > 0">Only load <i>{{options.filterext}}</i> files</span>
+                <span ng-if="options.filterext === '*' || options.filterext.length < 1">Load all files</span>
+              </label>
+            </div>-->
+              
+            <div class="form-group row">
+              <label class="col-3 col-form-label">Output</label>
+              <div class="col-9  input-group input-group-sm">
+                <span class="input-group-btn">
+                  <button type="button" class="btn btn-sm btn-default" ng-click="chooseOutputDir();"><i class="fa fa-folder-open"></i></button>
+                  <input id="selected_outdir" class="form-control" name="selectedoutdir" type="file" webkitdirectory style="display:none" />
+                </span>
+                <input type="text" class="form-control" placeholder="Path..."  ng-model="options.outputdir">                    
+              </div>
+              <label class="col-12 col-form-label text-right">
+                Leave blank for same as source
+              </label>
+            </div>
+            
+            <div class="form-group row">
+              <label class="col-3 col-form-label">Append</label>
+              <div class="col-9  input-group input-group-sm" style="width: 100%;">
+              
+                <input class="form-control" type="text" placeholder="_ami" ng-model="options.fname_append" style="max-width: 50%; max-height: 30px;">
+                <select class="input-group-addon custom-select" ng-model="options.append_type" style="height: 30px; padding-top: 8px; width: 50%;">  
+                  <option value="prefix">prefix</option>
+                  <option value="suffix">suffix</option>
+                </select>                
+              
+              </div>
+              <label class="col-9 offset-md-3 col-form-label">Preview: 
+                <span ng-if="options.append_pos.indexOf('prefix') > -1"><i>{{options.fname_append}}filename.wav</i></span>
+                <span ng-if="options.append_pos.indexOf('suffix') > -1"><i>filename{{options.fname_append}}.wav</i></span>
+                </label>
+
+            </div>
+                  
+          
+        </div>
+        
+        
+        <div class="col-4">
+                             
+            <div class="form-group row">
+              <label class="col-4 col-form-label">SoX path</label>
+              <div class="col-8 input-group input-group-sm">
+                <input class="form-control" type="text" placeholder="e.g. /usr/local/bin/" ng-model="options.soxpath">
+              </div>
+            </div>
+                             
+            <div class="form-group row">
+              
+              <div class="col-4 text-center">
+                <div class="form-check">
+                  <label class="form-check-label" style="margin-top: 6px;">
+                    <input class="form-check-input" type="checkbox"ng-model="options.normalise">
+                  </label>
+                </div>
+              </div>
+
+
+              
+              <div class="col-4 text-center">
+                <div class="form-check">
+                  <label class="form-check-label" style="margin-top: 6px;">
+                    <input class="form-check-input" type="checkbox"ng-model="options.dither">
+                  </label>
+                </div>
+              </div>
+
+
+              
+              <div class="col-4 text-center">
+                <div class="form-check">
+                  <label class="form-check-label" style="margin-top: 6px;">
+                    <input class="form-check-input" type="checkbox"ng-model="options.mono_enabled">
+                  </label>
+                </div>
+              </div>
+              
+              <label class="col-4 col-form-label text-center">Normalise</label>
+              <label class="col-4 col-form-label text-center">Dither</label>              
+              <label class="col-4 col-form-label text-center">Mono</label>
+              
+              
+              <label class="col-3 col-form-label">Playback Volume</label>
+            
+              <div class="col-9">
+                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 0, ceil: 100 }" rz-slider-model="options.playbackvolume"></rzslider>
+              </div>              
+                            
+            </div>            
+
+
+
+         
+         </div>
+        
+        
+      </div>
+      
+      
+      <div class="row">
+        <div class="col-12 text-right">
+          <div class="btn-group ">
+              <button type="button" class="btn btn-sm btn-secondary" ng-click="files = [];">
+                <i class="fa fa-close"></i> Clear All
+            </button>
+          </div>
+          &nbsp;
+          <div class="btn-group ">
+              <button type="button" class="btn btn-sm btn-secondary" ng-click="convertAll();">
+                <i class="fa fa-exchange"></i> Convert All
+            </button>
+          </div>
+          <br><br>
+        </div>
+      </div>
+      
+    
+      <div class="dropzone" ng-if="files.length <= 0">
+        <div class="droptext">
+          Drop files or folders here
+        </div>
+      </div>
+    
+      <div ng-if="files.length > 0">
+        <div class="row fileitem" ng-repeat="file in files" on-finish-render="postRender()">
+          <div class="col-3">
+            <!--<audio id="audio-{{$index}}">
+              <source ng-src="{{file.fullpath}}" type="audio/wav" />
+            </audio>-->
+            <!--Target filename: <br><i><span ng-bind="file.targetfilename"></span></i><br>-->
+            Target filesize: <span ng-bind="file.outputsize | number: 0"></span> bytes <br>
+            <!--Target duration: <span ng-bind="file.outputduration | number: 2"></span> seconds      <br>-->
+            Target duration: <span ng-bind="file.trimrange | number: 2"></span>      
+            <br>
+            <button type="button" class="btn btn-sm btn-secondary"  ng-click="playerControl($index);">
+              <i class="fa" ng-class="{'fa-play': file.player.paused == true, 'fa-pause': file.player.paused != true}"></i>
+            </button>    
+          </div>
+          <div class="col-6" style="padding: 0 !important">
+            
+            <div style="width: 475px; height: 60px;">    
+              <rzslider style="width: 475px;" class="custom-slider" rz-slider-model="file.trimstart" rz-slider-high="file.trimend" rz-slider-options="file.trimoptions"></rzslider>
+              <div style="width: 475px; height: 60px;" class="text-center" ng-if="!file.showplayer">
+                Waveform display and playback for supported for wav/mp3 only
+              </div>
+              <canvas style="position: absolute; width: 475px; height: 60px; top: 7px; left: 0;" id="wform-canvas-{{$index}}">
+              </canvas>
+              <div id="playhead-{{$index}}" style="left: 0; position: absolute; z-index: 3000; background-color: #ff8800; width: 1px; height: 85px; margin-top: -58px">
+              </div>
+            </div>
+            
+            
+            
+          </div>
+          <div class="col-3 text-right">
+            <br>
+            <div class="align-middle" style="display: block">
+              <div style="padding-bottom: 4px;">
+
+                <button type="button" class="btn btn-sm btn-secondary"  ng-click="removeFile($index);">
+                  <i class="fa fa-close"></i> Remove
+                </button>
+              </div>
+              <button class="btn btn-secondary btn-sm" ng-disabled="file.processing" ng-click="processItem($index, null)"><i class="fa fa-exchange"></i> {{file.buttontext}}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    
+    </div><!--mainwrap end-->
+    
+    
+    
+  </body>
+  
+  <!-- Insert this line above script imports  -->
+  <script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
+
+  <!-- normal script imports etc  -->  
+  <script
+    src="https://code.jquery.com/jquery-1.12.4.min.js"
+    integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ="
+    crossorigin="anonymous">
+  </script>
+
+    <script src="bower_components/angular/angular.min.js"></script>
+  <script src="bower_components/bootstrap/dist/js/bootstrap.min.js"></script>
+  <script src="bower_components/angular-animate/angular-animate.min.js"></script>
+  <script src="bower_components/angular-touch/angular-touch.min.js"></script>
+  <script src="bower_components/angular-bootstrap/ui-bootstrap.min.js"></script>    
+  
+  
+  <script src="bower_components/angularjs-slider/dist/rzslider.min.js"></script>
+	<script src="bower_components/electangular/electangular.js"></script>
+  
+  <!-- Insert this line after script imports -->
+  <script>if (window.module) module = window.module;</script>
+  
+  <script>
+      // You can also require other files to run in this process
+      require('./renderer.js')
+    </script>
+  
+</html>
