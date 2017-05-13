@@ -162,6 +162,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   }
 
   $scope.removeFile = function(i) {
+    $scope.files[i].player.pause();
     $scope.files.splice(i, 1);
 
   }
