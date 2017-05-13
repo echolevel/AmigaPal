@@ -30,6 +30,14 @@
       border:1px solid #ccc !important;
       }
       
+      canvas {
+        user-select: none;
+        -moz-user-select: none;
+        -khtml-user-select: none;
+        -webkit-user-select: none;
+        -o-user-select: none;
+      }
+      
       .mainwrap {
         margin: 0 auto;
       }
@@ -63,7 +71,12 @@
       .fileitem {
         padding-top: 6px; 
         padding-bottom: 6px; 
-        min-width: 100%
+        min-width: 100%;
+        border: solid 1px rgba(255,255,255,0.0);
+      }
+      
+      .highlighted {
+        border: solid 1px #aaccff !important;
       }
       
       .fileitem:nth-child(odd){
@@ -80,7 +93,7 @@
 
       .custom-slider.rzslider .rz-pointer {
         width: 8px;
-        height: 16px;
+        height: 16px;        
         top: auto; /* to remove the default positioning */
         bottom: 0;
         background-color: #333;
@@ -98,6 +111,8 @@
 
       .custom-slider.rzslider .rz-bubble {
         bottom: 14px;
+        color: #000;
+        z-index: 4000;
       }
 
       .custom-slider.rzslider .rz-limit {
@@ -478,49 +493,73 @@
       </div>
     
       <div ng-if="files.length > 0">
-        <div class="row fileitem" ng-repeat="file in files" on-finish-render="postRender()">
-          <div class="col-3">
-            <!--<audio id="audio-{{$index}}">
-              <source ng-src="{{file.fullpath}}" type="audio/wav" />
-            </audio>-->
-            Target filename: <br><i><span ng-bind="file.targetfilename"></span></i><br>
-            Target filesize: <span ng-bind="file.outputsize | number: 0"></span> bytes <br>
-            <!--Target duration: <span ng-bind="file.outputduration | number: 2"></span> seconds      <br>-->
-            Target duration: <span ng-bind="file.trimrange | number: 2"></span>      
-            <br>
-            <button type="button" class="btn btn-sm btn-secondary"  ng-click="playerControl($index);">
-              <i class="fa" ng-class="{'fa-play': file.player.paused == true, 'fa-pause': file.player.paused != true}"></i>
-            </button>    
-          </div>
-          <div class="col-6" style="padding: 0 !important">
-            
-            <div style="width: 475px; height: 60px;">    
-              <rzslider style="width: 475px;" class="custom-slider" rz-slider-model="file.trimstart" rz-slider-high="file.trimend" rz-slider-options="file.trimoptions"></rzslider>
-              <div style="width: 475px; height: 60px;" class="text-center" ng-if="!file.showplayer">
-                Waveform display and playback for supported for wav/mp3 only
-              </div>
-              <canvas style="position: absolute; width: 475px; height: 60px; top: 7px; left: 0;" id="wform-canvas-{{$index}}">
-              </canvas>
-              <div id="playhead-{{$index}}" style="left: 0; position: absolute; z-index: 3000; background-color: #ff8800; width: 1px; height: 85px; margin-top: -58px">
-              </div>
-            </div>
-            
-            
-            
-          </div>
-          <div class="col-3 text-right">
-            <br>
-            <div class="align-middle" style="display: block">
-              <div style="padding-bottom: 4px;">
+        <div  class="row fileitem" 
+              ng-repeat="file in files" 
+              on-finish-render="postRender()" 
+              ng-click="highlight($index);"
+              ng-class="{'highlighted': file.highlight == true}"
+              >              
 
-                <button type="button" class="btn btn-sm btn-secondary"  ng-click="removeFile($index);">
-                  <i class="fa fa-close"></i> Remove
-                </button>
-              </div>
-              <button class="btn btn-secondary btn-sm" ng-disabled="file.processing" ng-click="processItem($index, null)"><i class="fa fa-exchange"></i> {{file.buttontext}}</button>
+            <div class="col-3">
+              <!--<audio id="audio-{{$index}}">
+                <source ng-src="{{file.fullpath}}" type="audio/wav" />
+              </audio>-->
+              Target filename: <br><!--<i><span ng-bind="file.targetfilename"></span></i><br>-->
+              <textarea rows="2" width="100%" ng-model="file.targetfilename" style="overflow: hidden"></textarea>
+              Target size: <span ng-bind="file.outputsize | number: 0"></span> bytes <br>
+              <!--Target duration: <span ng-bind="file.outputduration | number: 2"></span> seconds      <br>-->
+              Target length: <span ng-bind="file.trimrange | number: 2"></span> s
+              <br>
+              <button type="button" class="btn btn-sm btn-secondary"  ng-click="playerControl($index);">
+                <i class="fa" ng-class="{'fa-play': file.player.paused == true, 'fa-pause': file.player.paused != true}"></i>
+              </button>    
             </div>
-          </div>
-        </div>
+            <div class="col-7" style="padding: 0 !important;">
+            
+              <div style="width: 509px; height: 100%; position: relative" id="playheadwrap-{{$index}}">    
+                <div id="playhead-{{$index}}" 
+                     style="left: 0; 
+                             position: absolute; 
+                             z-index: 3000;
+                             background-color: #ff8800; 
+                             width: 1px; 
+                             height: 100%; 
+                             margin-top: 0">
+                </div>
+                <div style="height: 100%; width: 100%; margin: auto; position: absolute;">
+                  <rzslider style="width: 100%; position:absolute !important; margin: auto !important; top: 0 !important; bottom: 0 !important;" 
+                            class="custom-slider" 
+                            rz-slider-model="file.trimstart" 
+                            rz-slider-high="file.trimend" 
+                            rz-slider-options="file.trimoptions
+                            ">
+                  </rzslider>
+                </div>
+                          
+                <div style="width: 509px; height: 100%;" class="text-center" ng-if="!file.showplayer">
+                  Waveform display and playback for supported for wav/mp3 only
+                </div>
+                <canvas style="position: absolute; width: 509px; height: 100%; top: 0px; left: 0; margin: auto" 
+                        id="wform-canvas-{{$index}}">
+                </canvas>
+                
+              </div>
+            </div>
+          
+            <div class="col-2 text-right">
+              <br>
+              <div class="align-middle" style="display: block">
+                <div style="padding-bottom: 4px;">
+
+                  <button type="button" class="btn btn-sm btn-secondary"  ng-click="removeFile($index);">
+                    <i class="fa fa-close"></i> Remove
+                  </button>
+                </div>
+                <button class="btn btn-secondary btn-sm" ng-disabled="file.processing" ng-click="processItem($index, null)"><i class="fa fa-exchange"></i> {{file.buttontext}}</button>
+              </div>
+            </div>
+                    
+        </div><!-- fileitem end -->
       </div>
 
     

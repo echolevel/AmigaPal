@@ -206,7 +206,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
         }
 
         $scope.files[i].trimrange = $scope.files[i].trimend - $scope.files[i].trimstart;
-        $scope.files[i].player.currentTime = $scope.files[i].trimstart;
+        //$scope.files[i].player.currentTime = $scope.files[i].trimstart;
 
         // Factor in trimrange
         $scope.files[i].outputsize = Math.round($scope.options.bitdepth * $scope.options.samplerate * $scope.files[i].trimrange / 8 * 100) / 100;
@@ -214,6 +214,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       }
     }
   }, true);
+    
 
   $scope.$on('ngRepeatFinished', function (ngRepeatFinishedEvent) {});
 
@@ -309,13 +310,51 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   };
 
   $scope.playerControl = function (idx) {
-
-    if ($scope.files[idx].player.paused) {
-      $scope.files[idx].player.play();
+    
+    var ply = $scope.files[idx].player;
+    
+    if (ply.paused) {
+      if (ply.currentTime >= $scope.files[idx].trimend || ply.currentTime < $scope.files[idx].trimend) {
+        ply.currentTime = $scope.files[idx].trimstart;
+      }
+      ply.play();
     } else {
-      $scope.files[idx].player.pause();
+      ply.pause();
     }
   };
+  
+  $scope.highlight = function(idx) {
+    console.log("highlighting");
+    for (var i = 0, f; f = $scope.files[i]; i++) {
+      if (i == idx) {
+        f.highlight = true;
+      } else {
+        f.highlight = false;
+      }
+    }
+  }
+  
+  function getKey(e) {
+    console.log(e.keyCode);
+  }
+  
+  window.addEventListener('keydown', onKeyDown, true);
+  
+  function onKeyDown(e) {
+    console.log(e.keyCode);
+    if(e.keyCode == 32 && !e.target.matches('textarea')) {
+      e.preventDefault();
+      for(var i=0, f; f = $scope.files[i]; i++ ) {
+        if(f.highlight) {
+          if ($scope.files[i].player.currentTime >= $scope.files[i].trimend) {
+            $scope.files[i].player.currentTime = $scope.files[i].trimstart;
+          }
+          //f.player.currentTime = 0;
+          $scope.playerControl(i);
+        }
+      }
+    }
+  }
 
   $scope.convertAll = function () {
     for (var i in $scope.files) {
@@ -394,6 +433,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       processing: false,
       buttontext: "Convert",
       showplayer: true,
+      highlight: false,
       trimstart: 0,
       trimend: 0,
       trimrange: 0,
@@ -489,6 +529,10 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       //console.log(tmpfile);
       $scope.files.push(tmpfile);
       var i = $scope.files.length - 1;
+      
+      if(i == 0) {
+        $scope.files[i].highlight = true;  //highlight the first sample for keyboard shortcuts
+      }
 
       $scope.files[i].player = new Audio();
       $scope.files[i].player.src = 'file://' + $scope.files[i].fullpath;
@@ -503,7 +547,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           setInterval(function () {
             //console.log($scope.files[i].player.currentTime);
 
-            var phNewpos = Math.round($scope.files[i].player.currentTime.map(0, $scope.files[i].info.duration, 0, 475));
+            var phNewpos = Math.round($scope.files[i].player.currentTime.map(0, $scope.files[i].info.duration, 0, 509),2);
             playhead.style['left'] = phNewpos + 'px';
 
             if ($scope.files[i].player.currentTime >= $scope.files[i].trimend) {
