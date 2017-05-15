@@ -12,9 +12,11 @@
     <style type="text/css">
       html {
         height: 100%;
+        overflow-y: scroll;
+        overflow-x: hidden;
       }
       body {
-        padding: 20px;
+        padding: 0px;
         background-color: #f5f5f4;
         font-family: system,-apple-system,".SFNSDisplay-Regular","Helvetica Neue",Helvetica,"Segoe UI",sans-serif !important;
         font-size: 13px;
@@ -38,13 +40,18 @@
         -o-user-select: none;
       }
       
+      .global-options {
+        padding: 20px;
+      }
+      
+      
       .mainwrap {
         margin: 0 auto;
       }
       
       .dropzone {
         width: 100%;
-        height: 465px;
+        min-height: 465px;
         border: dashed 8px #999;
         border-radius: 30px;
         display: table;
@@ -55,18 +62,19 @@
         vertical-align: middle;
       }
       
-      .filelist {
-        width: 100%;
-        margin: 0 auto;
+      #fileswrap {
+        height: 100%;
+        padding-left: 8px;
+        padding-right: 8px;
+      }
+      
+      #fileslist {
+
       }
       
       .btn-toolbar {
         padding-bottom: 8px;
-      }
-        
-      .global-options {
-
-      }
+      }       
       
       .fileitem {
         padding-top: 6px; 
@@ -198,9 +206,8 @@
     </style>
   </head>
   <body ng-app="mainApp" ng-controller="MainCtrl">
-    <div class="mainwrap" style="max-width: 900px">
-      <button type="button" class="btn btn-sm btn-primary pull-right" data-toggle="collapse" data-target="#guide">?</button>
-      <br>
+    <div class="mainwrap" style="max-width: 900px; height: 100%;">
+      <!--<button type="button" class="btn btn-sm btn-primary " data-toggle="collapse" data-target="#guide">?</button>-->
       <div class="row collapse" id="guide">
         <div class="col-sm-12">          
           
@@ -331,17 +338,19 @@
               </label>
             </div>
 
-           
             <div class="form-group row">
-              <label class="col-5 col-form-label">Transpose</label>
-              <div class="col-7 input-group input-group-sm">
-                <input class="form-control" type="number" value="0" step="1" ng-model="options.transpose">
+              <label class="col-3 col-form-label">Append</label>
+              <div class="col-9  input-group input-group-sm" style="width: 100%;">
+              
+                <input class="form-control" type="text" placeholder="e.g. _ami" ng-model="options.fname_append" style="max-width: 50%; max-height: 30px;">
+                <select class="input-group-addon custom-select" ng-model="options.append_type" style="height: 30px; padding-top: 8px; width: 50%;">  
+                  <option value="prefix">prefix</option>
+                  <option value="suffix">suffix</option>
+                </select>                
+              
               </div>
-              <label class="col-7 offset-md-5 col-form-label">
-                100 = 1 semitone
-              </label>
+
             </div>
-            
               
             
         </div>
@@ -360,16 +369,6 @@
               </div>
             </div>
         
-            <!--<div class="form-group row">
-              <label class="col-3 col-form-label">Filter</label>
-              <div class="col-9  input-group input-group-sm">
-                <input class="form-control" type="text" placeholder=".wav" ng-model="options.filterext">
-              </div>
-              <label class="col-9 offset-md-3 col-form-label">
-                <span ng-if="options.filterext.length > 0">Only load <i>{{options.filterext}}</i> files</span>
-                <span ng-if="options.filterext === '*' || options.filterext.length < 1">Load all files</span>
-              </label>
-            </div>-->
               
             <div class="form-group row">
               <label class="col-3 col-form-label">Output</label>
@@ -386,21 +385,10 @@
             </div>
             
             <div class="form-group row">
-              <label class="col-3 col-form-label">Append</label>
-              <div class="col-9  input-group input-group-sm" style="width: 100%;">
-              
-                <input class="form-control" type="text" placeholder="_ami" ng-model="options.fname_append" style="max-width: 50%; max-height: 30px;">
-                <select class="input-group-addon custom-select" ng-model="options.append_type" style="height: 30px; padding-top: 8px; width: 50%;">  
-                  <option value="prefix">prefix</option>
-                  <option value="suffix">suffix</option>
-                </select>                
-              
+              <label class="col-4 col-form-label">SoX path</label>
+              <div class="col-8 input-group input-group-sm">
+                <input class="form-control" type="text" placeholder="e.g. /usr/local/bin/" ng-model="options.soxpath">
               </div>
-              <label class="col-9 offset-md-3 col-form-label">Preview: 
-                <span ng-if="options.append_pos.indexOf('prefix') > -1"><i>{{options.fname_append}}filename.wav</i></span>
-                <span ng-if="options.append_pos.indexOf('suffix') > -1"><i>filename{{options.fname_append}}.wav</i></span>
-                </label>
-
             </div>
                   
           
@@ -409,12 +397,7 @@
         
         <div class="col-4">
                              
-            <div class="form-group row">
-              <label class="col-4 col-form-label">SoX path</label>
-              <div class="col-8 input-group input-group-sm">
-                <input class="form-control" type="text" placeholder="e.g. /usr/local/bin/" ng-model="options.soxpath">
-              </div>
-            </div>
+
                              
             <div class="form-group row">
               
@@ -449,41 +432,51 @@
               <label class="col-4 col-form-label text-center">Normalise</label>
               <label class="col-4 col-form-label text-center">Dither</label>              
               <label class="col-4 col-form-label text-center">Mono</label>
+
               
+              <div class="col-6  input-group input-group-sm" style="width: 100%;">
               
-              <label class="col-3 col-form-label">Playback Volume</label>
+                <select class="input-group-addon custom-select" ng-model="options.output_format" style="height: 30px; padding-top: 8px; width: 100%;">  
+                  <option value="8svx" select>8svx</option>
+                  <option value="wav">wav</option>                  
+                  <option value="raw">raw</option>
+                </select>                
+              
+              </div>
             
-              <div class="col-9">
+              <div class="col-6">
                 <rzslider  class="custom-slider2" rz-slider-options="{ floor: 0, ceil: 100 }" rz-slider-model="options.playbackvolume"></rzslider>
               </div>              
+              
+              <label class="col-6 col-form-label">Output format</label>
+              
+              <label class="col-6 col-form-label">Playback volume</label>              
+              
+              
+              <div class="col-12 text-right">
+                <div class="btn-group ">
+                    <button type="button" class="btn btn-sm btn-secondary" ng-click="files = [];">
+                      <i class="fa fa-close"></i> Remove all
+                  </button>
+                </div>
+                &nbsp;
+                <div class="btn-group ">
+                    <button type="button" class="btn btn-sm btn-secondary" ng-click="convertAll();">
+                      <i class="fa fa-exchange"></i> Convert all
+                  </button>
+                </div>
+
+              </div>
                             
             </div>            
 
-
-
-         
+   
          </div>
         
         
       </div>
       
       
-      <div class="row">
-        <div class="col-12 text-right">
-          <div class="btn-group ">
-              <button type="button" class="btn btn-sm btn-secondary" ng-click="files = [];">
-                <i class="fa fa-close"></i> Clear All
-            </button>
-          </div>
-          &nbsp;
-          <div class="btn-group ">
-              <button type="button" class="btn btn-sm btn-secondary" ng-click="convertAll();">
-                <i class="fa fa-exchange"></i> Convert All
-            </button>
-          </div>
-          <br><br>
-        </div>
-      </div>
       
     
       <div class="dropzone" ng-if="files.length <= 0">
@@ -492,7 +485,9 @@
         </div>
       </div>
     
-      <div ng-if="files.length > 0">
+      <div id="fileswrap">
+        
+        <div ng-if="files.length > 0" id="fileslist">
         <div  class="row fileitem" 
               ng-repeat="file in files" 
               on-finish-render="postRender()" 
@@ -505,18 +500,43 @@
                 <source ng-src="{{file.fullpath}}" type="audio/wav" />
               </audio>-->
               Target filename: <br><!--<i><span ng-bind="file.targetfilename"></span></i><br>-->
-              <textarea rows="2" width="100%" ng-model="file.targetfilename" style="overflow: hidden"></textarea>
+              <textarea rows="2" width="100%" ng-model="file.appendedtargetfilename" style="overflow: hidden"></textarea>
               Target size: <span ng-bind="file.outputsize | number: 0"></span> bytes <br>
               <!--Target duration: <span ng-bind="file.outputduration | number: 2"></span> seconds      <br>-->
-              Target length: <span ng-bind="file.trimrange | number: 2"></span> s
+              Target length: <span ng-bind="file.outputduration | number: 2"></span> s
               <br>
-              <button type="button" class="btn btn-sm btn-secondary"  ng-click="playerControl($index);">
-                <i class="fa" ng-class="{'fa-play': file.player.paused == true, 'fa-pause': file.player.paused != true}"></i>
-              </button>    
+              
+
+
+                <div class="input-group input-group-sm col-8 pull-left" style="padding-left: 0px">
+                      <span class="input-group-btn input-group-btn-sm">
+                          <button type="button" class="btn btn-secondary btn-number" ng-click="transposeDown($index)">
+                              <span class="fa fa-minus"></span>
+                          </button>
+                      </span>
+                      <input type="text" class="form-control input-number" value="{{file.transpose}}" style="text-align: center; padding:0px" readonly>
+                      <span class="input-group-btn">
+                          <button type="button" class="btn btn-secondary btn-number" ng-click="transposeUp($index)">
+                              <span class="fa fa-plus"></span>
+                          </button>
+                      </span>
+                  </div>
+              
+              
+                <button type="button" class="btn btn-sm btn-secondary"  ng-click="playerControl($index);">
+                  <i class="fa" ng-class="{'fa-play': file.playing != true, 'fa-pause': file.playing == true}"></i>
+                </button>    
+              
+
+              <!--<div class="col-6">
+                  <rzslider  class="custom-slider2" rz-slider-options="file.transSlider.options" rz-slider-model="file.transpose"></rzslider>                      
+              </div>-->
+
+              
             </div>
             <div class="col-7" style="padding: 0 !important;">
             
-              <div style="width: 509px; height: 100%; position: relative" id="playheadwrap-{{$index}}">    
+              <!--<div style="width: 509px; height: 100%; position: relative" id="playheadwrap-{{$index}}">    
                 <div id="playhead-{{$index}}" 
                      style="left: 0; 
                              position: absolute; 
@@ -539,11 +559,19 @@
                 <div style="width: 509px; height: 100%;" class="text-center" ng-if="!file.showplayer">
                   Waveform display and playback for supported for wav/mp3 only
                 </div>
-                <canvas style="position: absolute; width: 509px; height: 100%; top: 0px; left: 0; margin: auto" 
+                <canvas style="position: absolute; width: 509px; height: 100%; top: 0px; left: 0; margin: auto; display: none" 
                         id="wform-canvas-{{$index}}">
                 </canvas>
+                  
+                
+                
+                
+              </div>-->
+              
+              <div id="waveform-{{$index}}" style="width: 100%; height: 100%">
                 
               </div>
+              
             </div>
           
             <div class="col-2 text-right">
@@ -561,7 +589,8 @@
                     
         </div><!-- fileitem end -->
       </div>
-
+      
+      </div><!--fileswrap end -->
     
     </div><!--mainwrap end-->
     

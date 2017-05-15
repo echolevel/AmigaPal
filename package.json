@@ -46,7 +46,8 @@
     }
   },
   "dependencies": {
-    "electron-compile": "^6.4.1"
+    "electron-compile": "^6.4.1",
+    "wavesurfer.js": "^2.0.0-beta01"
   },
   "devDependencies": {
     "babel-plugin-transform-async-to-generator": "^6.24.1",

@@ -1,4 +1,5 @@
 'use strict';
+import RegionPlugin from 'wavesurfer.js/dist/plugin/wavesurfer.regions.min.js';
 
 angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(function () {}).directive('onFinishRender', ['$timeout', '$parse', function ($timeout, $parse) {
   return {
@@ -21,6 +22,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   var audioContext = new AudioContext();
   var remote = require('electron').remote;
   var dialog = remote.require('electron').dialog;
+  var WaveSurfer = require('wavesurfer.js');
+  
   const path = require('path');
   //var mainProcess = remote.require('index.js');
 
@@ -83,6 +86,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       filterext: "",
       bitdepth: 8,
       defaultdir: '',
+      output_format: '8svx',
       outputdir: '',
       fname_append: "_ami",
       append_type: "suffix",
@@ -146,6 +150,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
         outfile = $scope.options.fname_append + fname;
         console.log("It's a prefix");
     }
+    
 
     // Using path.join in the hope that it keeps things largely platform-agnostic. Not sure how Windows will behave yet, but it's supposed to recognise / as well as \
     if(typeof $scope.options.outputdir != 'undefined' && $scope.options.outputdir.length > 1 ) {
@@ -153,6 +158,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     } else {
       output = path.join(inputdir, outfile);
     }
+
+    output = output.substring(0, output.lastIndexOf('.')) + '.' + $scope.options.output_format;
 
     // Now we actually call actual sox, with our actual sox options and whatnot
     exec($scope.options.soxpath + 'sox "' + input + '" ' + opt + ' "' + output + '" ' + effects, function (error, stdout, stderr) {
@@ -175,6 +182,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
     for (var i in $scope.files) {
       $scope.files[i].player.volume = $scope.options.playbackvolume / 100;
+      $scope.files[i].wavesurfer.setVolume($scope.options.playbackvolume/100);
     }    
     
   }, true);
@@ -187,33 +195,45 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     if ($scope.files.length > 0) {
       //console.log("Updating target filesize");
       for (var i in $scope.files) {
-        // This formula calculates the new internal samplerate when transposition by cents of semitones is factored in.
+        
+        // Filename preview
+        if($scope.options.append_type == "suffix") {
+            $scope.files[i].appendedtargetfilename = $scope.files[i].targetfilename.substring(0, $scope.files[i].targetfilename.lastIndexOf('.')) + $scope.options.fname_append + '.' + $scope.options.output_format;
+        } else if($scope.options.append_type == "prefix"){
+            $scope.files[i].appendedtargetfilename = $scope.options.fname_append + $scope.files[i].targetfilename;
+        }
+        
+        // This formula calculates the new internal samplerate when transposition by semitones is factored in.
         // Everything will be resampled to the target samplerate at the end.
-        var temprate = Math.pow(2, $scope.options.transpose / 12 / 100) * $scope.options.samplerate;
+        var temprate = Math.pow(2, $scope.files[i].transpose / 12) * $scope.options.samplerate;
+
         // This is the samplerate that the original file would have with the same transposition, regardless of its 
         // samplerate to begin with. We need this to calculate target file duration.
-        var origtemprate = Math.pow(2, $scope.options.transpose / 12 / 100) * $scope.files[i].info.samplerate;
+        var origtemprate = Math.pow(2, $scope.files[i].transpose / 12) * $scope.files[i].info.samplerate;
 
         var tempduration = $scope.files[i].originalsize / (origtemprate * $scope.files[i].info.channelcount * ($scope.files[i].info.bitdepth / 8));
 
         $scope.files[i].outputduration = Math.round(tempduration * 100) / 100;
 
 
-        //$scope.files[i].trimend = $scope.files[i].outputduration;
+
         $scope.files[i].trimoptions.ceil = $scope.files[i].outputduration;
         if ($scope.files[i].trimend > $scope.files[i].trimoptions.ceil) {
           $scope.files[i].trimend = $scope.files[i].trimoptions.ceil;
         }
 
         $scope.files[i].trimrange = $scope.files[i].trimend - $scope.files[i].trimstart;
-        //$scope.files[i].player.currentTime = $scope.files[i].trimstart;
 
+        //console.log("File"+i+" trimrange: " + $scope.files[i].trimrange);
         // Factor in trimrange
+        // W T F
         $scope.files[i].outputsize = Math.round($scope.options.bitdepth * $scope.options.samplerate * $scope.files[i].trimrange / 8 * 100) / 100;
-        //$scope.files[i].outputsize = Math.round((($scope.options.bitdepth * $scope.options.samplerate * $scope.files[i].outputduration) / 8) *100)/100;                
+
       }
     }
   }, true);
+  
+
     
 
   $scope.$on('ngRepeatFinished', function (ngRepeatFinishedEvent) {});
@@ -221,42 +241,147 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   var drawAudio = function drawAudio(i) {
 
-    // All the unattached HTML5 media audio elements we created on load are grabbed here by XHR and fed into Web Audio API buffers so we can get the audio data for waveform drawing
 
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', 'file://' + $scope.files[i].fullpath, true);
-    xhr.responseType = 'arraybuffer';
-    
-    xhr.onload = function (e) {
-      var audioData = xhr.response;
-      audioContext.decodeAudioData(audioData, function() {
-        console.log("audio decoded");
-      }, function() {
-        console.log("audio not decoded");
-        $scope.files[i].showplayer = false;
-        $scope.$apply();
-      }).then(function (buffer) {
-        var audioBuffer = buffer;
-        var canvas = document.getElementById('wform-canvas-' + i);
-        var context = canvas.getContext('2d');
-        var data = buffer.getChannelData(0);
-        var step = Math.ceil(data.length / canvas.width);
-        var amp = canvas.height / 2;
-        for (var k = 0; k < canvas.width; k++) {
-          var min = 1.0;
-          var max = -1.0;
-          for (var j = 0; j < step; j++) {
-            var datum = data[k * step + j];
-            if (datum < min) min = datum;
-            if (datum > max) max = datum;
+    $timeout(function() {
+      $scope.files[i].wavesurfer = WaveSurfer.create({
+        container: '#waveform-'+i,
+        plugins: [
+          RegionPlugin.create({
+            dragSelection:true,
+            id: "unique",
+            loop: true,
+            drag: false,
+            resize: true
+          })
+        ]
+      })
+      $scope.files[i].wavesurfer.load($scope.files[i].fullpath);
+      
+      // Merge stereo to mono (L+R option). Need to figure out how to split channels to preview L/R separately.
+      var tomono = $scope.files[i].wavesurfer.backend.ac.createChannelMerger(1);
+      //var singlechan = $scope.files[i].wavesurfer.backend.ac.createChannelSplitter(1);
+      $scope.files[i].wavesurfer.backend.setFilter(tomono);
+      //$scope.files[i].wavesurfer.backend.setFilter(singlechan);
+      
+      $scope.files[i].wavesurfer.on('ready', function() {
+        
+        $scope.files[i].wavesurfer.setVolume($scope.options.playbackvolume/100);
+        console.log($scope.files[i].wavesurfer.getDuration());
+      })
+      
+      
+      $scope.files[i].wavesurfer.on('finish', function() {
+        $scope.files[i].wavesurfer.play();
+      })
+      
+      $scope.files[i].wavesurfer.on('play', function() {
+        $scope.files[i].playing = true;
+        console.log("detected play start; now playing");
+      })
+      $scope.files[i].wavesurfer.on('pause', function() {
+        $scope.files[i].playing = false;
+        console.log("detected pause; now paused");
+      })
+      
+      $scope.files[i].wavesurfer.on('region-created', function(newregion) {
+
+        // Loop through all the regions (hopefully a maximum of 1) and delete any region that
+        // doesn't match the ID of the new region. We only want one region to exist at a time.
+        for (var key in $scope.files[i].wavesurfer.regions.list) {
+          if($scope.files[i].wavesurfer.regions.list.hasOwnProperty(key)) {
+            if(key.id != newregion.id) {
+              console.log("found an old region");                                
+              $scope.files[i].wavesurfer.regions.list[key].remove();
+            }
           }
-          context.fillStyle = "#888";
-          context.fillRect(k, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
         }
+        newregion.loop = true;
+        console.log(newregion);
+        
+        //$scope.files[i].wavesurfer.pause();
+        $scope.files[i].trimstart = newregion.start;
+        $scope.files[i].trimend   = newregion.end;
+        $scope.files[i].trimrange = newregion.end - newregion.start;
+        $scope.files[i].wavesurfer.play(newregion.start, newregion.end);
+      })
+      
+      $scope.files[i].wavesurfer.on('region-updated', function(region) {
+        $scope.files[i].trimstart = region.start;
+        $scope.files[i].trimend   = region.end;
+        $scope.files[i].trimrange = region.end - region.start;
+      })
+      
+      $scope.files[i].wavesurfer.on('region-update-end', function(region) {        
+        $scope.files[i].trimstart = region.start;
+        $scope.files[i].trimend   = region.end;
+        $scope.files[i].trimrange = region.end - region.start;
+        $scope.files[i].wavesurfer.play(region.start, region.end);
+      })
+      
+      $scope.files[i].wavesurfer.on('dblclick', function(region) {
+        region.start = 0;
+        region.end = $scope.files[i].wavesurfer.getDuration();
+      })
+      
+    }, 0)
 
-      });
-    };
-    xhr.send();
+    // All the unattached HTML5 media audio elements we created on load are grabbed here by XHR and fed into Web Audio API buffers so we can get the audio data for waveform drawing
+    /*
+    
+    
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', 'file://' + $scope.files[i].fullpath, true);
+        xhr.responseType = 'arraybuffer';
+        
+        xhr.onload = function (e) {
+          var audioData = xhr.response;
+          audioContext.decodeAudioData(audioData, function() {
+            console.log("audio decoded");
+          }, function() {
+            console.log("audio not decoded");
+            $scope.files[i].showplayer = false;
+            $scope.$apply();
+          }).then(function (buffer) {
+            var audioBuffer = buffer;
+            var canvas = document.getElementById('wform-canvas-' + i);
+            var context = canvas.getContext('2d');
+            var data = buffer.getChannelData(0);
+            var step = Math.ceil(data.length / canvas.width);
+            var amp = canvas.height / 2;
+            for (var k = 0; k < canvas.width; k++) {
+              var min = 1.0;
+              var max = -1.0;
+              for (var j = 0; j < step; j++) {
+                var datum = data[k * step + j];
+                if (datum < min) min = datum;
+                if (datum > max) max = datum;
+              }
+              context.fillStyle = "#888";
+              context.fillRect(k, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
+            }
+            
+            
+           
+                    
+            // TEST
+                  
+            //$scope.files[i].source = audioContext.createMediaElementSource($scope.files[i].player);
+            //$scope.files[i].gainNode = audioContext.createGain();
+            //$scope.files[i].gainNode.gain.value = $scope.options.playbackvolume;
+            //$scope.files[i].biquad = audioContext.createBiquadFilter();
+            //$scope.files[i].biquad.frequency.value = 1000;
+            //$scope.files[i].biquad.type = "highpass";
+            //$scope.files[i].biquad.detune.value = -1200;
+            //$scope.files[i].source.connect($scope.files[i].biquad);
+            //$scope.files[i].biquad.connect($scope.files[i].gainNode);
+            //$scope.files[i].gainNode.connect(audioContext.destination);
+            
+            // TEST END 
+            
+          });
+        };
+        xhr.send();
+        */
     
   };
 
@@ -281,7 +406,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     //var noclobber = '--no-clobber';
     var noclobber = '';
 
-    soxProcess($scope.files[idx].fullpath, $scope.files[idx].inputdir, $scope.files[idx].targetfilename, '-b 8 -r ' + $scope.options.samplerate + ' ' + normalise + ' ' + dither + ' ' + noclobber + ' ', $scope.files[idx].targetpath, 'remix ' + $scope.options.mixdown + ' speed ' + $scope.options.transpose + 'c' + ' trim ' + $scope.files[idx].trimstart + ' ' + $scope.files[idx].trimrange, function (error, stdout, stderr) {
+    soxProcess($scope.files[idx].fullpath, $scope.files[idx].inputdir, $scope.files[idx].targetfilename, '-b 8 -r ' + $scope.options.samplerate + ' ' + normalise + ' ' + dither + ' ' + noclobber + ' ', $scope.files[idx].targetpath, 'remix ' + $scope.options.mixdown + ' speed ' + $scope.files[idx].transpose *100 + 'c' + ' trim ' + $scope.files[idx].trimstart + ' ' + $scope.files[idx].trimrange, function (error, stdout, stderr) {
       if (error) {
         console.log(error);
         console.log(stderr);
@@ -311,6 +436,9 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   $scope.playerControl = function (idx) {
     
+    
+    $scope.files[idx].wavesurfer.playPause();
+    /*
     var ply = $scope.files[idx].player;
     
     if (ply.paused) {
@@ -321,6 +449,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     } else {
       ply.pause();
     }
+    */
   };
   
   $scope.highlight = function(idx) {
@@ -335,17 +464,21 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   }
   
   function getKey(e) {
-    console.log(e.keyCode);
+    //console.log(e.keyCode);
   }
   
   window.addEventListener('keydown', onKeyDown, true);
   
   function onKeyDown(e) {
-    console.log(e.keyCode);
+    //console.log(e.keyCode);
     if(e.keyCode == 32 && !e.target.matches('textarea')) {
       e.preventDefault();
       for(var i=0, f; f = $scope.files[i]; i++ ) {
         if(f.highlight) {
+          
+          $scope.playerControl(i);
+          
+          
           if ($scope.files[i].player.currentTime >= $scope.files[i].trimend) {
             $scope.files[i].player.currentTime = $scope.files[i].trimstart;
           }
@@ -407,6 +540,40 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     ev.preventDefault();
   };
 
+  function transUpdate(idx) {
+        
+    var transp = $scope.files[idx].transpose;    
+    // Logarithmic scaling of semitones to playback rate, where 1 is original rate
+    var detuneval = Math.pow(2, transp/12);
+    console.log(detuneval);
+    $scope.files[idx].wavesurfer.setPlaybackRate( detuneval);
+    console.log($scope.files[idx].wavesurfer.regions.list);
+    if($scope.files[idx].wavesurfer.regions.length > 0) {
+      for (var i=0, reg; reg = $scope.files[idx].wavesurfer.regions[i]; i++) {
+        $scope.files[idx].trimstart = reg.start;
+        $scope.files[idx].trimend = reg.end;
+        $scope.files[idx].trimrange = reg.end-reg.start;
+        console.log("Updated region range");
+      }
+    } else {
+      $scope.files[idx].trimstart = 0;
+      $scope.files[idx].trimend = $scope.files[idx].wavesurfer.getDuration();
+      $scope.files[idx].trimrange = $scope.files[idx].wavesurfer.getDuration()
+    }
+    
+    
+  }
+
+  $scope.transposeUp = function(idx){
+    $scope.files[idx].transpose +=1;
+    transUpdate(idx);
+  }
+  
+  $scope.transposeDown = function(idx){
+    $scope.files[idx].transpose -=1;
+    transUpdate(idx);        
+  }
+
   function createItem(path) {
     var inpath = path;
     var indir = inpath.substring(0, inpath.lastIndexOf('/') + 1);
@@ -440,6 +607,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       originalsize: 0,
       outputsize: 0,
       outputduration: 0,
+      transpose: 0,
+      playing: false,
       trimoptions: {
         floor: 0,
         ceil: 0,
@@ -528,7 +697,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       var opt = {};
       //console.log(tmpfile);
       $scope.files.push(tmpfile);
-      var i = $scope.files.length - 1;
+      var i = $scope.files.length - 1;      
       
       if(i == 0) {
         $scope.files[i].highlight = true;  //highlight the first sample for keyboard shortcuts
