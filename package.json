@@ -1,7 +1,7 @@
 {
   "name": "AmigaPal",
   "productName": "AmigaPal",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Sample converter thing",
   "main": "src/index.js",
   "scripts": {

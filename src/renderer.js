@@ -181,14 +181,18 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     
     // Always watch for changes to options, and update localstorage and for other general purpose updates
     
-    localStorage.setItem('config', JSON.stringify($scope.options));
-
-    for (var i in $scope.files) {
-      $scope.files[i].player.volume = $scope.options.playbackvolume / 100;
-      $scope.files[i].wavesurfer.setVolume($scope.options.playbackvolume/100);
-    }    
+    localStorage.setItem('config', JSON.stringify($scope.options));    
     
   }, true);
+  
+  $scope.$watch('options.playbackvolume', function() {
+    for (var i in $scope.files) {
+      $scope.files[i].player.volume = $scope.options.playbackvolume / 100;
+      if(typeof $scope.files[i].wavesurfer !== 'undefined') {
+          $scope.files[i].wavesurfer.setVolume($scope.options.playbackvolume/100);
+      }      
+    }
+  })
 
 
   $scope.$watch(function () {
@@ -204,7 +208,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
             $scope.files[i].appendedtargetfilename = $scope.files[i].targetfilename.substring(0, $scope.files[i].targetfilename.lastIndexOf('.')) + $scope.options.fname_append + '.' + $scope.options.output_format;
         } else if($scope.options.append_type == "prefix"){
             $scope.files[i].appendedtargetfilename = $scope.options.fname_append + $scope.files[i].targetfilename;
-            $scope.files[i].appendedtargetfilename = $scope.files[i].appendedtargetfilename.substr(0, $scope.files[i].appendedtargetfilename.length-4) + $scope.options.output_format;
+            $scope.files[i].appendedtargetfilename = $scope.files[i].appendedtargetfilename.substring(0, $scope.files[i].appendedtargetfilename.lastIndexOf('.')) + '.' + $scope.options.output_format;
         }
         
         // This formula calculates the new internal samplerate when transposition by semitones is factored in.
@@ -245,89 +249,93 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   var drawAudio = function drawAudio(i) {
 
+      if($scope.files[i].input_ext == '.wav' || $scope.files[i].input_ext == '.mp3'){
 
-    $timeout(function() {
-      $scope.files[i].wavesurfer = WaveSurfer.create({
-        container: '#waveform-'+i,
-        plugins: [
-          RegionPlugin.create({
-            dragSelection:true,
-            id: "unique",
-            loop: true,
-            drag: false,
-            resize: true
-          })
-        ]
-      })
-      $scope.files[i].wavesurfer.load($scope.files[i].fullpath);
-      
-      // Merge stereo to mono (L+R option). Need to figure out how to split channels to preview L/R separately.
-      var tomono = $scope.files[i].wavesurfer.backend.ac.createChannelMerger(1);
-      //var singlechan = $scope.files[i].wavesurfer.backend.ac.createChannelSplitter(1);
-      $scope.files[i].wavesurfer.backend.setFilter(tomono);
-      //$scope.files[i].wavesurfer.backend.setFilter(singlechan);
-      
-      $scope.files[i].wavesurfer.on('ready', function() {
+          $timeout(function() {
+            $scope.files[i].wavesurfer = WaveSurfer.create({
+              container: '#waveform-'+i,
+              plugins: [
+                RegionPlugin.create({
+                  dragSelection:true,
+                  id: "unique",
+                  loop: true,
+                  drag: false,
+                  resize: true
+                })
+              ]
+            })
+            $scope.files[i].wavesurfer.load($scope.files[i].fullpath);
         
-        $scope.files[i].wavesurfer.setVolume($scope.options.playbackvolume/100);
-        console.log($scope.files[i].wavesurfer.getDuration());
-      })
-      
-      
-      $scope.files[i].wavesurfer.on('finish', function() {
-        $scope.files[i].wavesurfer.play();
-      })
-      
-      $scope.files[i].wavesurfer.on('play', function() {
-        $scope.files[i].playing = true;
-        console.log("detected play start; now playing");
-      })
-      $scope.files[i].wavesurfer.on('pause', function() {
-        $scope.files[i].playing = false;
-        console.log("detected pause; now paused");
-      })
-      
-      $scope.files[i].wavesurfer.on('region-created', function(newregion) {
+            // Merge stereo to mono (L+R option). Need to figure out how to split channels to preview L/R separately.
+            var tomono = $scope.files[i].wavesurfer.backend.ac.createChannelMerger(1);
+            //var singlechan = $scope.files[i].wavesurfer.backend.ac.createChannelSplitter(1);
+            $scope.files[i].wavesurfer.backend.setFilter(tomono);
+            //$scope.files[i].wavesurfer.backend.setFilter(singlechan);
+        
+            $scope.files[i].wavesurfer.on('ready', function() {
+          
+              $scope.files[i].wavesurfer.setVolume($scope.options.playbackvolume/100);
+              console.log($scope.files[i].wavesurfer.getDuration());
+            })
+        
+        
+            $scope.files[i].wavesurfer.on('finish', function() {
+              $scope.files[i].wavesurfer.play();
+            })
+        
+            $scope.files[i].wavesurfer.on('play', function() {
+              $scope.files[i].playing = true;
+              console.log("detected play start; now playing");
+            })
+            $scope.files[i].wavesurfer.on('pause', function() {
+              $scope.files[i].playing = false;
+              console.log("detected pause; now paused");
+            })
+        
+            $scope.files[i].wavesurfer.on('region-created', function(newregion) {
 
-        // Loop through all the regions (hopefully a maximum of 1) and delete any region that
-        // doesn't match the ID of the new region. We only want one region to exist at a time.
-        for (var key in $scope.files[i].wavesurfer.regions.list) {
-          if($scope.files[i].wavesurfer.regions.list.hasOwnProperty(key)) {
-            if(key.id != newregion.id) {
-              console.log("found an old region");                                
-              $scope.files[i].wavesurfer.regions.list[key].remove();
-            }
-          }
-        }
-        newregion.loop = true;
-        console.log(newregion);
+              // Loop through all the regions (hopefully a maximum of 1) and delete any region that
+              // doesn't match the ID of the new region. We only want one region to exist at a time.
+              for (var key in $scope.files[i].wavesurfer.regions.list) {
+                if($scope.files[i].wavesurfer.regions.list.hasOwnProperty(key)) {
+                  if(key.id != newregion.id) {
+                    console.log("found an old region");                                
+                    $scope.files[i].wavesurfer.regions.list[key].remove();
+                  }
+                }
+              }
+              newregion.loop = true;
+              console.log(newregion);
+          
+              //$scope.files[i].wavesurfer.pause();
+              $scope.files[i].trimstart = newregion.start;
+              $scope.files[i].trimend   = newregion.end;
+              $scope.files[i].trimrange = newregion.end - newregion.start;
+              $scope.files[i].wavesurfer.play(newregion.start, newregion.end);
+            })
         
-        //$scope.files[i].wavesurfer.pause();
-        $scope.files[i].trimstart = newregion.start;
-        $scope.files[i].trimend   = newregion.end;
-        $scope.files[i].trimrange = newregion.end - newregion.start;
-        $scope.files[i].wavesurfer.play(newregion.start, newregion.end);
-      })
-      
-      $scope.files[i].wavesurfer.on('region-updated', function(region) {
-        $scope.files[i].trimstart = region.start;
-        $scope.files[i].trimend   = region.end;
-        $scope.files[i].trimrange = region.end - region.start;
-      })
-      
-      $scope.files[i].wavesurfer.on('region-update-end', function(region) {        
-        $scope.files[i].trimstart = region.start;
-        $scope.files[i].trimend   = region.end;
-        $scope.files[i].trimrange = region.end - region.start;
-        $scope.files[i].wavesurfer.play(region.start, region.end);
-      })
-      
-      $scope.files[i].wavesurfer.on('dblclick', function(region) {
-        region.start = 0;
-        region.end = $scope.files[i].wavesurfer.getDuration();
-      })
-      
-    }, 0)
+            $scope.files[i].wavesurfer.on('region-updated', function(region) {
+              $scope.files[i].trimstart = region.start;
+              $scope.files[i].trimend   = region.end;
+              $scope.files[i].trimrange = region.end - region.start;
+            })
+        
+            $scope.files[i].wavesurfer.on('region-update-end', function(region) {        
+              $scope.files[i].trimstart = region.start;
+              $scope.files[i].trimend   = region.end;
+              $scope.files[i].trimrange = region.end - region.start;
+              $scope.files[i].wavesurfer.play(region.start, region.end);
+            })
+        
+            $scope.files[i].wavesurfer.on('dblclick', function(region) {
+              region.start = 0;
+              region.end = $scope.files[i].wavesurfer.getDuration();
+            })
+        
+          }, 0)
+      } else {
+        $scope.files[i].showplayer = false;
+      }
 
     // All the unattached HTML5 media audio elements we created on load are grabbed here by XHR and fed into Web Audio API buffers so we can get the audio data for waveform drawing
     /*
@@ -468,13 +476,13 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   }
   
   function getKey(e) {
-    //console.log(e.keyCode);
+    console.log(e.keyCode);
   }
   
   window.addEventListener('keydown', onKeyDown, true);
   
   function onKeyDown(e) {
-    //console.log(e.keyCode);
+    console.log(e.keyCode);
     if(e.keyCode == 32 && !e.target.matches('textarea')) {
       e.preventDefault();
       for(var i=0, f; f = $scope.files[i]; i++ ) {
@@ -587,13 +595,13 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     
     // If the input is an mp3, change its output target filename to wav. SoX will infer that it's 
     // supposed to convert to wav.
-    var ext = outfile.substr(outfile.lastIndexOf('.')+1, 4);
+    var ext = outfile.substring(outfile.lastIndexOf('.'), outfile.length);
     //if(ext == 'mp3' || ext == 'MP3' || ext == 'mP3' || ext == 'Mp3') {
     /*
     if(ext != 'wav') {
           outfile = outfile.substr(0, outfile.length-3) + 'wav';
         }*/
-      outfile = outfile.substr(0, outfile.length-3) + $scope.options.output_format;
+      outfile = outfile.substring(0, outfile.lastIndexOf('.')) + '.' + $scope.options.output_format;
 
 
     var tmpfile = {
@@ -603,6 +611,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       filename: infile,
       targetfilename: outfile,
       name: outfile,
+      input_ext: ext,
       processing: false,
       buttontext: "Convert",
       showplayer: true,

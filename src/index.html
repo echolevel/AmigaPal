@@ -561,9 +561,7 @@
                   </rzslider>
                 </div>
                           
-                <div style="width: 509px; height: 100%;" class="text-center" ng-if="!file.showplayer">
-                  Waveform display and playback for supported for wav/mp3 only
-                </div>
+                
                 <canvas style="position: absolute; width: 509px; height: 100%; top: 0px; left: 0; margin: auto; display: none" 
                         id="wform-canvas-{{$index}}">
                 </canvas>
@@ -572,7 +570,9 @@
                 
                 
               </div>-->
-              
+              <div style="width: 509px; height: 100%;" class="text-center" ng-if="!file.showplayer">
+                Waveform display and playback for supported for wav/mp3 only
+              </div>
               <div id="waveform-{{$index}}" style="width: 100%; height: 100%">
                 
               </div>

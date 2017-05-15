@@ -12,7 +12,7 @@ Features:
 
 * Built with Electron, so should run on MacOS, Windows and Linux
 * Drag and drop files to load, or load an entire directory for batch conversion
-* Supports .wav and .mp3 as source audio files, at any bitdepths or samplerates that SoX can handle (lots)
+* Supports .wav, .mp3, .aiff/.aif and .raw as source audio files, at any bitdepths or samplerates that SoX can handle (lots)
 * .wav and .mp3 files have a waveform display and preview player for selecting time ranges to which the output will be trimmed
 * Estimated (but fairly close) target filesize and duration are calculated on the fly, so you can trim/downsample a sample to fit within your tracker module format's size limit (128kb for Protracker .MOD, though commonly believed to be 64kb - including by some popular replayers)
 * Free entry field for target samplerate (AmigaPal assumes you have a familiarity with your target hardware/software so will know what's best to use here)
