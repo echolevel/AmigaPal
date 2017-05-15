@@ -144,7 +144,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     
     // Append the output filename
     if($scope.options.append_type == "suffix") {
-        outfile = fname.substring(0, fname.lastIndexOf('.')) + $scope.options.fname_append + '.wav';
+        outfile = fname.substring(0, fname.lastIndexOf('.')) + $scope.options.fname_append + '.' + $scope.options.output_format;
         console.log("It's a suffix");
     } else if($scope.options.append_type == "prefix"){
         outfile = $scope.options.fname_append + fname;
@@ -170,6 +170,9 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   $scope.removeFile = function(i) {
     $scope.files[i].player.pause();
+    $scope.files[i].wavesurfer.pause();
+    $scope.files[i].wavesurfer.clearRegions();
+    $scope.files[i].wavesurfer.destroy();
     $scope.files.splice(i, 1);
 
   }
@@ -191,7 +194,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   $scope.$watch(function () {
     
     // Not sure how efficient it is, but it's a good way to update target filesize and duration on the fly
-    
+
     if ($scope.files.length > 0) {
       //console.log("Updating target filesize");
       for (var i in $scope.files) {
@@ -201,6 +204,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
             $scope.files[i].appendedtargetfilename = $scope.files[i].targetfilename.substring(0, $scope.files[i].targetfilename.lastIndexOf('.')) + $scope.options.fname_append + '.' + $scope.options.output_format;
         } else if($scope.options.append_type == "prefix"){
             $scope.files[i].appendedtargetfilename = $scope.options.fname_append + $scope.files[i].targetfilename;
+            $scope.files[i].appendedtargetfilename = $scope.files[i].appendedtargetfilename.substr(0, $scope.files[i].appendedtargetfilename.length-4) + $scope.options.output_format;
         }
         
         // This formula calculates the new internal samplerate when transposition by semitones is factored in.
@@ -585,9 +589,11 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     // supposed to convert to wav.
     var ext = outfile.substr(outfile.lastIndexOf('.')+1, 4);
     //if(ext == 'mp3' || ext == 'MP3' || ext == 'mP3' || ext == 'Mp3') {
+    /*
     if(ext != 'wav') {
-      outfile = outfile.substr(0, outfile.length-3) + 'wav';
-    }
+          outfile = outfile.substr(0, outfile.length-3) + 'wav';
+        }*/
+      outfile = outfile.substr(0, outfile.length-3) + $scope.options.output_format;
 
 
     var tmpfile = {

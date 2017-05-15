@@ -400,6 +400,11 @@
 
                              
             <div class="form-group row">
+
+
+              <label class="col-4 col-form-label text-center">Normalise</label>
+              <label class="col-4 col-form-label text-center">Dither</label>              
+              <label class="col-4 col-form-label text-center">Mono</label>
               
               <div class="col-4 text-center">
                 <div class="form-check">
@@ -429,9 +434,11 @@
                 </div>
               </div>
               
-              <label class="col-4 col-form-label text-center">Normalise</label>
-              <label class="col-4 col-form-label text-center">Dither</label>              
-              <label class="col-4 col-form-label text-center">Mono</label>
+
+
+              <label class="col-6 col-form-label">Output format</label>
+              
+              <label class="col-6 col-form-label">Playback volume</label>     
 
               
               <div class="col-6  input-group input-group-sm" style="width: 100%;">
@@ -448,12 +455,10 @@
                 <rzslider  class="custom-slider2" rz-slider-options="{ floor: 0, ceil: 100 }" rz-slider-model="options.playbackvolume"></rzslider>
               </div>              
               
-              <label class="col-6 col-form-label">Output format</label>
-              
-              <label class="col-6 col-form-label">Playback volume</label>              
+         
               
               
-              <div class="col-12 text-right">
+              <div class="col-12 text-right" style="position: absolute; bottom: 0">
                 <div class="btn-group ">
                     <button type="button" class="btn btn-sm btn-secondary" ng-click="files = [];">
                       <i class="fa fa-close"></i> Remove all
@@ -578,12 +583,14 @@
               <br>
               <div class="align-middle" style="display: block">
                 <div style="padding-bottom: 4px;">
-
-                  <button type="button" class="btn btn-sm btn-secondary"  ng-click="removeFile($index);">
+                  <!-- This is disabled until I can figure out why removing an item makes Wavesurfer go berserk -->
+                  <!--<button type="button" class="btn btn-sm btn-secondary"  ng-click="removeFile($index);">
                     <i class="fa fa-close"></i> Remove
-                  </button>
+                  </button>-->
                 </div>
-                <button class="btn btn-secondary btn-sm" ng-disabled="file.processing" ng-click="processItem($index, null)"><i class="fa fa-exchange"></i> {{file.buttontext}}</button>
+                <button class="btn btn-secondary btn-sm" ng-disabled="file.processing" ng-click="processItem($index, null)" style="position: absolute; bottom: 0; right: 10px;">
+                  <i class="fa fa-exchange"></i> {{file.buttontext}}
+                </button>
               </div>
             </div>
                     
