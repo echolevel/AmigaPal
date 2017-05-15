@@ -12,22 +12,23 @@ Features:
 
 * Built with Electron, so should run on MacOS, Windows and Linux
 * Drag and drop files to load, or load an entire directory for batch conversion
-* Supports .wav, .mp3, .aiff, .aif and .raw as source audio files, at any bitdepths or samplerates that SoX can handle (lots)
+* Supports .wav and .mp3 as source audio files, at any bitdepths or samplerates that SoX can handle (lots)
 * .wav and .mp3 files have a waveform display and preview player for selecting time ranges to which the output will be trimmed
 * Estimated (but fairly close) target filesize and duration are calculated on the fly, so you can trim/downsample a sample to fit within your tracker module format's size limit (128kb for Protracker .MOD, though commonly believed to be 64kb - including by some popular replayers)
 * Free entry field for target samplerate (AmigaPal assumes you have a familiarity with your target hardware/software so will know what's best to use here)
 * Mono mixdown options for L+R mix, L channel only, R channel only; or disable Mono to retain the source audio's channel configuration.
-* Normalise, togglable
-* Dither, togglable - off by default because it's usually undesirable when converting for Protracker (with a target bit-depth of 8, most converters' dithering adds a lot of horrible noise)
-* Transpose up or down by cents of semitones, so 100 = 1 semitone, 1200 = 1 octave (unfortunately this can't be previewed due to HTML5 audio limitations, but target filesize/duration reflect it)
+* Normalise (togglable)
+* Dither (togglable) - off by default because it's usually undesirable when converting for Protracker (with a target bit-depth of 8, most converters' dithering adds a lot of horrible noise)
+* Per-file transpose up or down by semitones
 * Custom output directory for converted files; if left blank, files will be saved to the same directory as the source files
 * Custom string to append to converted files, positionable as a prefix or a suffix (without this you risk overwriting your original file; --no-clobber mode is NOT enabled in AmigaPal)
 * Specify the directory path of the SoX binary you want to use, in case you have multiple versions
 * Global volume control for preview audio
-* Preview audio loops when adjusting trim ranges - the loop you hear is the loop you'll get in the output file, even if the waveform display isn't always *quite* accurate
+* Preview audio loops when adjusting trim ranges - the loop you hear is the loop you'll get in the output file
 * All options are saved automatically for next time
 * If you've got a big list of files but want different settings for each of them, just tweak the settings between conversions - they all take immediate effect on any subsequent conversions
 * The 'Convert All' button does exactly what you think it does. Be sure that's what you want before clicking it with a huge folder of samples loaded up...
+
 
 Installation
 ------------
@@ -35,6 +36,46 @@ Installation
 As long as you've got SoX installed, and can find the path to the sox binary, you should be all set. 
 
 soxi is also used to gather initial source file info, calculate target size/duration, and draw the waveform; it *should* be in the same directory as sox got installed to.
+
+
+Building (development only)
+---------------------------
+
+You'll need to have bower and npm installed. 
+
+Clone the repo:
+
+`
+https://github.com/echolevel/AmigaPal.git
+`
+
+Install all the dependencies:
+
+`
+cd AmigaPal && npm install && cd src && bower install
+`
+
+Run:
+
+`
+electron-forge start
+`
+
+Package (optional - see [electron-packager](https://github.com/electron-userland/electron-packager) documentation for more on platform and arch options):
+
+`
+electron-forge package --platform=darwin,win32 --arch=x64
+`
+
+Publish (optional, and you'll need to use your own GitHub credentials in package.json - my access token is set locally as an environment variable):
+
+`
+electron-forge publish
+`
+
+Note that electron-forge's publish can only package a distributable for the architecture/platform you're building on. I'm on Mac, so for AmigaPal's Windows zip in the Releases section, I've just zipped and uploaded the package created with 'electron-forge package --platform=darwin,win32 --arch=x64'. This may or may not be wise ¯\\__(ツ)__/¯
+
+
 
 More Info
 --------- 
