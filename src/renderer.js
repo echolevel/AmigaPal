@@ -266,7 +266,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
     var lowp = "";
     // Got caught out by Nyquist on this one!
-    if($scope.options.samplerate/2 > 8202 && lowpass_enabled) {
+    if($scope.options.samplerate/2 > 8202 && $scope.options.lowpass_enabled) {
       lowp = " lowpass 8202";
     }
     //soxProcess($scope.files[idx].fullpath, '-b 8 -r ' + $scope.options.samplerate + ' ' + normalise + ' ' + dither + ' ', $scope.files[idx].targetpath, 'remix ' + $scope.options.mixdown + ' speed ' + $scope.options.transpose + 'c' + ' trim ' + $scope.files[idx].trimstart + ' ' + $scope.files[idx].trimrange, function (error, stdout, stderr) {
@@ -274,10 +274,12 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       if (error) {
         console.log(error);
         console.log(stderr);
+        alert("Something went horribly wrong");
       } else {
         console.log("Done: " + $scope.files[idx].targetpath);
         $scope.files[idx].processing = false;
         $scope.files[idx].buttontext = "Convert";
+        alert("Done");
         $scope.$apply();
         if (cb) {
           cb(idx);
