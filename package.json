@@ -36,7 +36,8 @@
         ]
       },
       "electronPackagerConfig": {
-        "packageManager": "npm"
+        "packageManager": "npm",
+        "asar": true
       },
       "electronWinstallerConfig": {
         "name": "amigapal"

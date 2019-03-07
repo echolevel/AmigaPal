@@ -25,11 +25,15 @@ Features:
 * If you've got a big list of files but want different settings for each of them, just tweak the settings between conversions - they all take immediate effect on any subsequent conversions
 * The 'Convert All' button does exactly what you think it does. Be sure that's what you want before clicking it with a huge folder of samples loaded up...
 
+Known Bugs:
+----------
+
+* The pause icon appears upon sample load before playback has started. After clicking, play/pause behave as expected. This is due to a combination of Angular 2's weird ng-class conditions and HTML5 Audio's convoluted playback state reporting. I'll figure it out eventually
 
 Installation
 ------------
 
-As long as you've got SoX installed, and can find the path to the sox binary, you should be all set.
+As long as you've got SoX installed, and can find the path to the sox binary, you should be all set. The default path is /usr/local/bin.
 
 soxi is also used to gather initial source file info, calculate target size/duration, and draw the waveform; it *should* be in the same directory as sox got installed to.
 
@@ -48,7 +52,7 @@ https://github.com/echolevel/AmigaPal.git
 Install all the dependencies:
 
 `
-cd AmigaPal && npm install && cd src && bower install
+cd AmigaPal && npm install  && bower install
 `
 
 Run:
