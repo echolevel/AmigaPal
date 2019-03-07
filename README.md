@@ -5,7 +5,7 @@ samplers, and similar obscure/obsolete purposes. Fundamentally a cross-platform 
 (which must be installed on your system for AmigaPal to work).
 
 
-![AmigaPal screen recording](./screenshot.png | width=300)
+![AmigaPal screen recording](./screenshot.png){:width="300px"}
 
 Features:
 ---------
