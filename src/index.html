@@ -211,93 +211,6 @@
   </head>
   <body ng-app="mainApp" ng-controller="MainCtrl">
     <div class="mainwrap" style="max-width: 600px">
-      <!-- rubbishy oul' guff
-        <button type="button" class="btn btn-sm btn-primary pull-right" data-toggle="collapse" data-target="#guide">?</button>
-      -->
-
-      <!--
-      <div class="row" id="logotext">
-        <div class="col-sm-12">
-          AmigaPal
-        </div>
-      </div>
-      -->
-
-      <div class="row collapse" id="guide">
-        <div class="col-sm-12">
-
-
-
-          <p>
-            <h4>README</h4>
-            <ul>
-              <li>
-                "Why is it called AmigaPal?" - I made this for myself, to speed up converting audio samples into the format
-                I generally use in ProTracker on the Amiga. They need to be mono, 8bit, and it's useful if they conform to the samplerates ProTracker uses for musical notes.
-                By default AmigaPal converts to 27928hz (A-3), which produces a relatively high quality 8bit 8svx file. So it's a helper tool (hence pal), plus I grew up
-                using PAL-region Amigas (hence pal), plus I like the redundancy of Amiga (friend) and Pal (friend). Also it currently defaults to using PAL samplerates for
-                ProTracker notes...I may add in NTSC as an alternative if there's any demand. AmigaPal is essentially a front-end for a SoX command that I baked with the help
-                of h0ffman, kebby and some of my own trial-and-error testing. The dream would be to replicate the lowpass filter 8bitbubsy has implemented in his MacOS/PC port
-                of ProTracker and use it as post-bit reduction processing to reduce some dithering noise, but I haven't been able to match it so far. Right now, AmigaPal gives the
-                best quality I've been able to achieve within ProTracker's limitations, according to my tastes - YMMV!
-              </li>
-              <li>
-                "Why won't it work?" - no idea, but the most likely thing is that you've not installed SoX, or that SoX isn't available in your default shell path.
-                Test this by opening a terminal or command prompt and typing 'sox'. I might try bundling the SoX executable into the app in future.
-              </li>
-              <li>
-                Drop audio files or folder onto the app to load them into the preview list
-              </li>
-              <li>
-                Target duration is affected by the semitone transpose, as this (deliberately) lengthens or shortens the sample.
-              </li>
-              <li>
-                Target filesize is an estimate, but should be pretty close for most samples. 128kb is the largest sample the MOD format supports,
-                and most trackers and modern replayers won't have a problem with that. Remember, though, that the most popular Amiga ASM replayer code believes 64kb to be the maximum, so will freak out.
-              </li>
-              <li>
-                L + R mixes both stereo channels to one; L or R use either. If your input file has more than 2 channels, L + R should still mix to mono.
-              </li>
-              <li>
-                The waveform view is a good guideline, but not precisely accurate: use your EARS to make sure a trim range is correct, as what you hear is what will be rendered.
-              </li>
-              <li>
-                The defaults are recommended for converting most types of audio file for use in Protracker.
-              </li>
-              <li>
-                Global options are saved automatically for next time.
-              </li>
-              <li>
-                The extension filter is used when scanning a folder of files to load - leave it blank to load all filetypes.
-              </li>
-              <li>
-                Batch Convert does what you think it does. Be sure that's what you want before clicking it with a huge folder of samples loaded.
-              </li>
-              <li>
-                If you've loaded a bunch of files but want different output settings for them, no problem: convert them individually, changing the global options between each conversion. The current options are always the ones used at the time you click Convert.
-              </li>
-            </ul>
-            <br>
-          </p>
-          <br>
-          <p>
-            <h4>TO DO: </h4>
-            <ul>
-              <li>
-                Test Windows
-              </li>
-              <li>
-                Bundle sox binary, get exec to call a built-in path?
-              </li>
-              <li>
-                Configurable (and ignorable) output folder. Currently, all converted files are placed in the same directory as the source file.
-              </li>
-            </ul>
-          </p>
-          <br><br>
-        </div>
-      </div>
-
 
       <div class="row global-options">
 
@@ -305,38 +218,36 @@
 
         </div>
 
-
-
-
-
-
-         <div class="col-6">
+         <div class="col-7">
 
            <div class="form-group row">
-             <label class="col-5 col-form-label">ProTracker Note</label>
-             <div class="col-7  input-group input-group-sm">
+
+             <div class="col-5  input-group input-group-sm">
                <select class="input-group-addon custom-select" ng-model="options.samplerate" style="min-width: 100%" ng-options="value as key for (key, value) in ptnotes">
                </select>
              </div>
+             <label class="col-7 col-form-label">ProTracker target note</label>
            </div>
 
            <div class="form-group row">
-             <label class="col-5 col-form-label">Samplerate</label>
-             <div class="col-7 input-group input-group-sm" >
+
+             <div class="col-5 input-group input-group-sm" >
                <input class="form-control" type="number" value="0" min="0" step="1" ng-model="options.samplerate">
                <div class="input-group-addon">Hz</div>
              </div>
+             <label class="col-7 col-form-label">Sample rate</label>
+
            </div>
 
             <div class="form-group row">
-              <label class="col-5 col-form-label">Mixdown</label>
-              <div class="col-7  input-group input-group-sm">
-                <select class="input-group-addon custom-select" ng-model="options.mixdown" ng-disabled="!options.mono_enabled" style="min-width: 100%">
-                  <option value="'-'">L + R</option>
-                  <option value="'1'">Left</option>
-                  <option value="'2'">Right</option>
+
+
+              <div class="col-5  input-group input-group-sm">
+                <select class="input-group-addon custom-select" ng-model="options.mixdown" style="min-width: 100%" ng-options="value as key for (key, value) in mixdownTypes">>
                 </select>
               </div>
+
+              <label class="col-7 col-form-label">Mono mixdown type</label>
               <!-- don't know why this exists
               <label class="col-7 offset-md-5 col-form-label">
                 Disable with 'Mono'
@@ -344,14 +255,17 @@
             </div>
 
             <div class="form-group row">
-              <label class="col-5 col-form-label">8khz Lowpass</label>
-              <div class="col-7">
+
+              <div class="col-5">
                 <div class="form-check">
                   <label class="form-check-label" style="margin-top: 6px;">
                     <input class="form-check-input" type="checkbox"ng-model="options.mono_enabled">
                   </label>
                 </div>
               </div>
+
+              <label class="col-7 col-form-label">8khz lowpass filter</label>
+
             </div>
 
             <!-- This doesn't work. Did it ever work? Am I going mad?
@@ -370,72 +284,49 @@
 
         </div>
 
-        <div class="col-6">
-
-            <!-- let's get rid of this - drag and drop only?
-            <div class="form-group row">
-              <label class="col-3 col-form-label">Folder</label>
-              <div class="col-9  input-group input-group-sm">
-                <span class="input-group-btn">
-                  <button type="button" class="btn btn-sm btn-default" ng-click="chooseDir();"><i class="fa fa-folder-open"></i></button>
-                  <input id="selected_dir" class="form-control" name="selecteddir" type="file" webkitdirectory style="display:none" />
-                </span>
-                <input type="text" class="form-control" placeholder="Path..."  ng-model="options.defaultdir">
-              </div>
-            </div>
-          -->
+        <div class="col-5">
 
             <div class="form-group row">
-              <label class="col-3 col-form-label">Filter</label>
-              <div class="col-9  input-group input-group-sm">
+
+              <div class="col-6  input-group input-group-sm">
                 <input class="form-control" type="text" placeholder=".wav" ng-model="options.filterext">
               </div>
-              <label class="col-9 offset-sm-3 col-form-label">
-                <span ng-if="options.filterext.length > 0">Only load <strong>{{options.filterext}}</strong> files</span>
-                <span ng-if="options.filterext === '*' || options.filterext.length < 1">Load all files</span>
+              <label class="col-6 col-form-label">
+                <span ng-if="options.filterext.length > 0"><strong>{{options.filterext}}</strong> only</span>
+                <span ng-if="options.filterext === '*' || options.filterext.length < 1">All files</span>
               </label>
             </div>
 
-            <!-- abolished
             <div class="form-group row">
-              <label class="col-3 col-form-label">Append</label>
-              <div class="col-9  input-group input-group-sm" style="width: 100%;">
 
-                <input class="form-control" type="text" placeholder="_ami" ng-model="options.fname_append" style="max-width: 50%; max-height: 30px;">
-                <select class="input-group-addon custom-select" ng-model="options.append_pos" style="height: 30px; padding-top: 8px; width: 50%;">
-                  <option value="prefix">prefix</option>
-                  <option value="suffix">suffix</option>
-                </select>
-
+              <div class="col-7 input-group input-group-sm">
+                <input class="form-control" type="text" placeholder="e.g. /usr/local/bin/" ng-model="options.soxpath">
               </div>
-              <label class="col-9 offset-md-3 col-form-label">Preview:
-                <span ng-if="options.append_pos.indexOf('prefix') > -1"><i>{{options.fname_append}}filename.wav</i></span>
-                <span ng-if="options.append_pos.indexOf('suffix') > -1"><i>filename{{options.fname_append}}.wav</i></span>
-                </label>
-
+              <label class="col-5 col-form-label">SoX path</label>
             </div>
-          -->
-
 
             <div class="form-group row">
-              <label class="col-3 col-form-label">Playback Volume</label>
 
-              <div class="col-9">
+
+              <div class="col-5">
                 <rzslider  class="custom-slider2" rz-slider-options="{ floor: 0, ceil: 100 }" rz-slider-model="options.playbackvolume"></rzslider>
               </div>
+              <label class="col-7 col-form-label">Playback Volume</label>
           </div>
 
+
+
           <div class="form-group row">
-            <div class="col-12 text-right">
+            <div class="col-12 text-left">
               <div class="btn-group ">
                   <button type="button" class="btn btn-sm btn-secondary" ng-click="files = [];">
-                    <i class="fa fa-trash-o"></i> Clear All
+                    <i class="fa fa-trash-o"></i> Clear all
                 </button>
               </div>
               &nbsp;
               <div class="btn-group ">
                   <button type="button" class="btn btn-sm btn-secondary" ng-click="convertAll();">
-                    <i class="fa fa-exchange"></i> Convert All
+                    <i class="fa fa-exchange"></i> Convert all
                 </button>
               </div>
               <br><br>
@@ -444,52 +335,6 @@
 
         </div>
 
-
-        <!-- These are just on by default now
-        <div class="col-4">
-
-            <div class="form-group row">
-
-
-              <div class="col-3">
-                <div class="form-check">
-                  <label class="form-check-label" style="margin-top: 6px;">
-                    <input class="form-check-input" type="checkbox"ng-model="options.normalise">
-                  </label>
-                </div>
-              </div>
-              <label class="col-9 col-form-label">Normalise</label>
-
-
-              <div class="col-3">
-                <div class="form-check">
-                  <label class="form-check-label" style="margin-top: 6px;">
-                    <input class="form-check-input" type="checkbox"ng-model="options.dither">
-                  </label>
-                </div>
-              </div>
-              <label class="col-9 col-form-label">Dither</label>
-
-              <div class="col-3">
-                <div class="form-check">
-                  <label class="form-check-label" style="margin-top: 6px;">
-                    <input class="form-check-input" type="checkbox"ng-model="options.mono_enabled">
-                  </label>
-                </div>
-              </div>
-              <label class="col-9 col-form-label">Mono</label>
-
-
-
-
-
-            </div>
-
-
-
-
-         </div>
-         -->
 
 
       </div>

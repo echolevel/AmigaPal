@@ -6,6 +6,7 @@ var _require = require('electron'),
 
 var path = require('path');
 var url = require('url');
+var protocol = require('electron').protocol;
 
 var win = void 0;
 
@@ -16,7 +17,11 @@ function createWindow() {
     minWidth: 600,
     maxWidth: 600,
     minHeight: 800,
-    maxHeight: 800
+    maxHeight: 800,
+    webPreferences: {
+      webSecurity: false,
+      allowRunningInsecureContent: true
+    }
     //,minHeight: 500
     //,maxWidth: 940
   });
@@ -27,11 +32,21 @@ function createWindow() {
     slashes: true
   }));
 
-  win.webContents.openDevTools({mode: 'bottom'});
+  //win.webContents.openDevTools({mode: 'bottom'});
 
   win.on('closed', function () {
     win = null;
   });
+
+  protocol.interceptFileProtocol('file', function(req, callback) {
+    var url = req.url.substr(7);
+    callback({path: path.normalize(__dirname + url)})
+  }, function(error) {
+    if(error) {
+      console.error('Failed to register protocol')
+    }
+  })
+
 }
 
 app.on('ready', createWindow);

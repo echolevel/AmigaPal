@@ -16,12 +16,14 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   };
 }]).controller('MainCtrl', function ($scope, $timeout) {
 
+  var pathpath = require('path');
+  var dataurl = require('dataurl');
   var exec = require('child_process').exec;
   var fs = require('fs');
   var audioContext = new AudioContext();
   var remote = require('electron').remote;
   var dialog = remote.require('electron').dialog;
-  var mainProcess = remote.require('./main');
+  var mainProcess = remote.require(__dirname + '/main.js');
 
   Number.prototype.map = function (in_min, in_max, out_min, out_max) {
     return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
@@ -68,6 +70,12 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     "B-3": 31388
   }
 
+  $scope.mixdownTypes = {
+    "L + R": '-',
+    "Left"  : '1',
+    "Right"  : '2'
+  }
+
   $scope.working = false;
 
   $scope.chooseDir = function () {
@@ -100,6 +108,24 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     });
   };
 
+  function soxCheck() {
+    // Is sox installed? Reachable? It should be in the same place as soxi, and soxi gets used first, so we check that first.
+    if($scope.options.soxpath && $scope.options.soxpath.substr(-1) != '/') {
+      $scope.options.soxpath += '/';
+    }
+    exec($scope.options.soxpath + 'sox', function(error, stdout, stderr) {
+      var errortext = error + '';
+      if (errortext.indexOf('FAIL sox') > -1) {
+        $scope.foundsox = true;
+        console.log("Found sox at " + $scope.options.soxpath);
+      } else {
+        console.log(errortext);
+        console.log("Couldn't find sox/soxi. Did you set the SoX path?");
+        alert("Couldn't find sox/soxi on your system. Did you set the SoX path? Please check it and restart.");
+      }
+    })
+  }
+
   if (!localStorage.getItem('config')) {
     console.log("No local storage found");
     var options = {
@@ -116,7 +142,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       append_type: "suffix",
       mono_enabled: true,
       lowpass_enabled: true,
-      playbackvolume: 50
+      playbackvolume: 50,
+      soxpath: '/usr/local/bin/'
     };
     localStorage.setItem('config', JSON.stringify(options));
     $scope.options = options;
@@ -127,7 +154,11 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     if ($scope.options.defaultdir != null && $scope.options.defaultdir.length > 0) {
       $scope.loadDir();
     }
+    // Check to see if SoX is available (kinda important):
+    soxCheck();
   }
+
+
 
   $scope.saveOptions = function () {
     localStorage.setItem('config', JSON.stringify($scope.options));
@@ -139,14 +170,16 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   $scope.files = [];
 
+
+
   function soxInfo(input, opt, callback) {
-    exec('/usr/local/bin/soxi ' + opt + ' "' + input + '"', function (error, stdout, stderr) {
+    exec($scope.options.soxpath + 'soxi ' + opt + ' "' + input + '"', function (error, stdout, stderr) {
       callback(error, stdout.replace(/\r?\n|\r/g, ''), stderr);
     });
   }
 
   function soxProcess(input, opt, output, effects, callback) {
-    exec('/usr/local/bin/sox "' + input + '" ' + opt + ' "' + output + '" ' + effects, function (error, stdout, stderr) {
+    exec($scope.options.soxpath + 'sox "' + input + '" ' + opt + ' "' + output + '" ' + effects, function (error, stdout, stderr) {
       callback(error, stdout, stderr);
     });
   }
@@ -206,6 +239,48 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   var drawAudio = function drawAudio(i) {
 
+    // Test
+
+    fs.readFile($scope.files[i].fullpath, function(err, data) {
+      if(data && !err) {
+        console.log("loaded successfully...");
+        var file = new window.Blob([data]);
+        var abuffer;
+        var fileReader = new FileReader();
+        fileReader.onload = function(event) {
+          abuffer = event.target.result;
+          audioContext.decodeAudioData(abuffer, function() {
+            console.log("audio decoded");
+          }, function() {
+            console.log("Audio not decoded");
+          }).then(function(buffer) {
+            var audioBuffer = buffer;
+            var canvas = document.getElementById('wform-canvas-' + i);
+            var context = canvas.getContext('2d');
+            var data = buffer.getChannelData(0);
+            var step = Math.ceil(data.length / canvas.width);
+            var amp = canvas.height / 2;
+            for (var k = 0; k < canvas.width; k++) {
+              var min = 1.0;
+              var max = -1.0;
+              for (var j = 0; j < step; j++) {
+                var datum = data[k * step + j];
+                if (datum < min) min = datum;
+                if (datum > max) max = datum;
+              }
+              context.fillStyle = "#7cca8f";
+              context.fillRect(k, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
+            }
+          })
+        }
+        fileReader.readAsArrayBuffer(file);
+
+      }
+    })
+
+    // End Test
+
+    /*
     var xhr = new XMLHttpRequest();
     xhr.open('GET', $scope.files[i].fullpath, true);
     xhr.responseType = 'arraybuffer';
@@ -234,18 +309,10 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           context.fillStyle = "#7cca8f";
           context.fillRect(k, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
         }
-
-        // Don't see how this can work for me without some kind of currentTime event :(
-        // HTML5 Audio element has this, but it's irregular and inaccurate.
-        /*
-        var source = audioContext.createBufferSource();
-                  source.buffer = buffer;
-                  source.connect(audioContext.destination);
-                  $scope.files[i].player = source;
-                  console.log($scope.files[i].player);*/
       });
     };
     xhr.send();
+    */
   };
 
   $scope.processItem = function (idx, cb) {
@@ -291,6 +358,9 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   $scope.playerControl = function (idx) {
     //var player = document.getElementById('audio-'+idx);
     //player.play();
+    if($scope.files[idx].player.unplayed) {
+      $scope.files[idx].player.unplayed = false;
+    }
     if ($scope.files[idx].player.paused) {
       $scope.files[idx].player.play();
     } else {
@@ -343,6 +413,16 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
     ev.preventDefault();
   };
+
+  function createAudioObject(filePath) {
+    var audioPromise = new Promise((resolve, reject) => {
+      fs.readFile(filePath, (err, data) => {
+        if(err) { reject(err); }
+        resolve(dataurl.convert({ data, mimetype: 'audio/wav'}));
+      })
+    })
+    return audioPromise;
+  }
 
   function createItem(path) {
     var inpath = path;
@@ -428,28 +508,41 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       $scope.files.push(tmpfile);
       var i = $scope.files.length - 1;
 
-      $scope.files[i].player = new Audio();
-      $scope.files[i].player.src = $scope.files[i].fullpath;
-      $scope.files[i].player.isPlaying = false;
-      $scope.files[i].player.volume = $scope.options.playbackvolume / 100;
-      console.log($scope.files[i].player);
-      $scope.files[i].player.ontimeupdate = function () {
-        var playhead = document.getElementById('playhead-' + i);
-        console.log(playhead.style['left']);
 
-        if (!$scope.files[i].player.paused) {
-          setInterval(function () {
-            console.log($scope.files[i].player.currentTime);
+      var audiofile;
+      fs.readFile($scope.files[i].fullpath, (err,data) => {
+        if(err) { console.log("failed")} else {
+          audiofile = data;
 
-            var phNewpos = Math.round($scope.files[i].player.currentTime.map(0, $scope.files[i].info.duration, 0, 325));
-            playhead.style['left'] = phNewpos + 'px';
+          $scope.files[i].player = new Audio(dataurl.convert({ data, mimetype: 'audio/wav'}));
+          //$scope.files[i].player.src = 'file://' + $scope.files[i].fullpath;
+          //$scope.files[i].player.src = pathpath.resolve(__dirname, $scope.files[i].fullpath);
+          $scope.files[i].player.isPlaying = false;
+          $scope.files[i].player.unplayed = true;
+          $scope.files[i].player.volume = $scope.options.playbackvolume / 100;
+          //console.log($scope.files[i].player);
+          $scope.files[i].player.ontimeupdate = function () {
+            var playhead = document.getElementById('playhead-' + i);
+            console.log(playhead.style['left']);
 
-            if ($scope.files[i].player.currentTime >= $scope.files[i].trimend) {
-              $scope.files[i].player.currentTime = $scope.files[i].trimstart;
+            if (!$scope.files[i].player.paused) {
+              setInterval(function () {
+                //console.log($scope.files[i].player.currentTime);
+
+                var phNewpos = Math.round($scope.files[i].player.currentTime.map(0, $scope.files[i].info.duration, 0, 325));
+                playhead.style['left'] = phNewpos + 'px';
+
+                if ($scope.files[i].player.currentTime >= $scope.files[i].trimend) {
+                  $scope.files[i].player.currentTime = $scope.files[i].trimstart;
+                }
+              }, 30);
             }
-          }, 30);
+          };
+
         }
-      };
+
+      })
+
       /*
       $scope.files[i].player.ended = function () {
               $scope.files[i].player.isPlaying = false;
@@ -458,7 +551,6 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
 
       drawAudio($scope.files.length - 1);
-
       $scope.$apply();
     }, 300);
   }
