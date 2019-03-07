@@ -1,0 +1,14 @@
+{
+  "name": "electangular",
+  "homepage": "https://github.com/develephant/electangular",
+  "_release": "d9fa20832b",
+  "_resolution": {
+    "type": "branch",
+    "branch": "master",
+    "commit": "d9fa20832bc11e93642ec0cfd9341f30db122e01"
+  },
+  "_source": "https://github.com/develephant/electangular.git",
+  "_target": "*",
+  "_originalSource": "develephant/electangular",
+  "_direct": true
+}

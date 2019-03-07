@@ -1,0 +1,15 @@
+{
+  "name": "amigapal",
+  "version": "0.1.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron main.js"
+  },
+  "devDependencies": {
+    "electron-prebuilt": "^0.36.12"
+  },
+  "dependencies": {
+    "nedb": "^1.8.0",
+    "sox.js": "^2.1.0"
+  }
+}
