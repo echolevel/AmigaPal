@@ -4,7 +4,7 @@ A desktop app for preparing and converting 8bit samples to use in Protracker on 
 samplers, and similar obscure/obsolete purposes. Fundamentally a cross-platform GUI for [SoX - "the Swiss Army knife of sound processing programs"](http://sox.sourceforge.net/)
 (which must be installed on your system for AmigaPal to work).
 
-
+<img src="./screenshot.png" width="300">
 ![AmigaPal screen recording](./screenshot.png){:width="300px"}
 
 Features:
