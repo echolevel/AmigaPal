@@ -28,7 +28,8 @@ Features:
 Known Bugs:
 ----------
 
-* The pause icon appears upon sample load before playback has started. After clicking, play/pause behave as expected. This is due to a combination of Angular 2's weird ng-class conditions and HTML5 Audio's convoluted playback state reporting. I'll figure it out eventually
+* The pause icon appears upon sample load before playback has started. After clicking, play/pause behave as expected. This is due to a combination of Angular 2's weird ng-class conditions and HTML5 Audio's convoluted playback state reporting. I'll figure it out eventually.
+* Sometimes the playheads get a bit confused e.g. the playhead on item 0 will move in sync with the playhead on item 1. Doesn't affect operation, but I'll try to fix it anyway.
 
 Installation
 ------------
