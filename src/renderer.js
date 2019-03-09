@@ -26,6 +26,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   var mainProcess = remote.require(__dirname + '/main.js');
   var bitcrusher = require('bitcrusher');
   $scope.writingWav = false;
+  $scope.statusmsg = "All is well";
 
 
   Number.prototype.map = function (in_min, in_max, out_min, out_max) {
@@ -277,7 +278,10 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
         console.log("Done: " + $scope.files[idx].targetpath);
         $scope.files[idx].processing = false;
         $scope.files[idx].buttontext = "Convert";
-        alert("Done");
+        $scope.statusmsg = "Success!";
+        $timeout(function() {
+          $scope.statusmsg = "All is well";
+        }, 5000) 
         $scope.$apply();
         if (cb) {
           cb(idx);
@@ -301,10 +305,15 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   $scope.convertAll = function () {
     for (var i in $scope.files) {
+      //pause everything first
+      $scope.files[i].player.pause();
       $scope.processItem(i, function (msg) {
         console.log("File " + msg + " successfully converted");
         if (i == msg) {
-          alert("All done!");
+          $scope.statusmsg = "Success!";
+          $timeout(function() {
+            $scope.statusmsg = "All is well";
+          }, 5000)
         }
       });
     }

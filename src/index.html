@@ -266,12 +266,12 @@
               <div class="col-5">
                 <rzslider  class="custom-slider2" rz-slider-options="{ floor: 1, ceil: 10000 }" rz-slider-model="options.highpasscutoff"></rzslider>
               </div>
-              <label class="col-7 col-form-label">Hi pass: {{options.highpasscutoff}}hz</label>
+              <label class="col-7 col-form-label">Hi pass: <input type="number" style="width: 58px" ng-model="options.highpasscutoff"></input> hz</label>
 
               <div class="col-5">
                 <rzslider  class="custom-slider2" rz-slider-options="{ floor: 1, ceil: 10000 }" rz-slider-model="options.lowpasscutoff"></rzslider>
               </div>
-              <label class="col-7 col-form-label">Low pass: {{options.lowpasscutoff}}hz</label>
+              <label class="col-7 col-form-label">Lo pass: <input type="number" style="width: 58px" ng-model="options.lowpasscutoff"></input> hz</label>
 
           </div>
 
@@ -348,8 +348,10 @@
                 </button>
               </div>
               <br><br>
+              <strong>STATUS: <span style="color: #7cca8f;">{{statusmsg}}</span></strong>
             </div>
           </div>
+
 
         </div>
 
