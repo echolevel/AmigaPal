@@ -40,6 +40,18 @@ As long as you've got SoX installed, and can find the path to the sox binary, yo
 
 soxi is also used to gather initial source file info, calculate target size/duration, and draw the waveform; it *should* be in the same directory as sox got installed to.
 
+CLI
+---
+
+If you'd prefer to script the conversion process, or would just rather not use the Electron GUI, here's a guide to the SoX settings that AmigaPal uses:
+
+`sox [infilename].wav -b 8 -r [samplerate] [outfilename].8svx highpass -1 [frequency in hz] lowpass -1 [frequency in hz] norm 0.5 dither -S remix - trim [starttime] [duration]`
+
+where values in square brackets are mapped to AmigaPal's controls. Here's an example for converting a 16bit stereo WAV to an 8bit 8SVX sample targeted at ProTracker note 'A 3' with a highpass (or low cut) filter at 60hz, a lowpass (or high cut) filter at 10khz, normalised, dithered, left and right channels collapsed to mono, and 2.3 seconds long starting at 0.2 seconds:
+
+`sox inputfile.wav -b 8 -r 27928 outfile.8svx highpass -1 60 lowpass -1 10000 norm 0.5 dither -S remix - trim 0.2 2.3`
+
+AmigaPal is doing nothing special that you can't do with this SoX syntax, but it makes batch-converting stuff a lot easier and removes some guesswork!
 
 Building (development only)
 ---------------------------
