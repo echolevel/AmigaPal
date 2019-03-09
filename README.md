@@ -45,13 +45,15 @@ CLI
 
 If you'd prefer to script the conversion process, or would just rather not use the Electron GUI, here's a guide to the SoX settings that AmigaPal uses:
 
-`sox [infilename].wav -b 8 -r [samplerate] [outfilename].8svx highpass -1 [frequency in hz] lowpass -1 [frequency in hz] norm 0.5 dither -S remix - trim [starttime] [duration]`
+`sox [infilename].wav [outfilename].8svx trim [starttime] [duration] norm 0.5 remix - highpass -1 [frequency in hz] lowpass -1 [frequency in hz] rate [sample rate] lowpass -1 8000 norm 0.5 dither -S`
 
-where values in square brackets are mapped to AmigaPal's controls. Here's an example for converting a 16bit stereo WAV to an 8bit 8SVX sample targeted at ProTracker note 'A 3' with a highpass (or low cut) filter at 60hz, a lowpass (or high cut) filter at 10khz, normalised, dithered, left and right channels collapsed to mono, and 2.3 seconds long starting at 0.2 seconds:
+The second lowpass filter is optional, being processed after the sample rate reduction in the event that some unwanted hiss needs to be removed. The conversion to 8bit is implicit in the 8SVX filetype, which is an explicitly 8bit format.
 
-`sox inputfile.wav -b 8 -r 27928 outfile.8svx highpass -1 60 lowpass -1 10000 norm 0.5 dither -S remix - trim 0.2 2.3`
+Values in square brackets are mapped to AmigaPal's controls. Here's an example for converting a 16bit stereo WAV to an 8bit 8SVX sample trimmed to 2.3 seconds starting at 0.2 seconds, normalised, highpassed (low cut) at 60hz, lowpassed (high cut) at 10000, reduced to the sample rate of ProTracker's note 'A-3' (~27928hz), lowpassed again at 8k to remove hiss, normalised again, then finally dithered:
 
-AmigaPal is doing nothing special that you can't do with this SoX syntax, but it makes batch-converting stuff a lot easier and removes some guesswork!
+`sox inputfile.wav outfile.8svx trim 0.2 2.3 norm 0.5 remix - highpass -1 60 lowpass -1 10000 rate 27928 lowpass -1 8000 norm 0.5 dither -S`
+
+AmigaPal is doing nothing special that you can't do with this SoX syntax, but it makes batch-converting stuff a lot easier and removes some guesswork! You might find it's worth playing with the order in which SoX processes the effects (with some caveats, of which SoX's terse and only occasionally helpful error messages will inform you), but this is what works best for me.
 
 Building (development only)
 ---------------------------

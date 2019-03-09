@@ -262,14 +262,22 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       lowp = " lowpass 8202";
     }
 
-    var sinccmd = '';
+    var infile = $scope.files[idx].fullpath;
+    var outfile = $scope.files[idx].targetpath;
+    var depthcmd = ' -b 8';
+    var filtercmd = '';
     if($scope.options.lowpasscutoff < 10000 || $scope.options.highpasscutoff > 1 ) {
       //sinccmd = ' sinc ' + $scope.options.highpasscutoff + '-' + $scope.options.lowpasscutoff + ' ';
-      sinccmd = ' highpass -1  ' + $scope.options.highpasscutoff + ' lowpass -1 ' + $scope.options.lowpasscutoff + ' ';
+      filtercmd = ' highpass -1  ' + $scope.options.highpasscutoff + ' lowpass -1 ' + $scope.options.lowpasscutoff + ' ';
     }
+    var trimcmd = ' trim ' + $scope.files[idx].trimstart + ' ' + $scope.files[idx].trimrange;
+    var remixcmd = ' remix ' + $scope.options.mixdown;
+    var normcmd = ' norm 0.5';
+    var dithercmd = ' dither -S';
+    var ratecmd = ' rate ' + $scope.options.samplerate;
 
-    //soxProcess($scope.files[idx].fullpath, '-b 8 -r ' + $scope.options.samplerate + ' ' + normalise + ' ' + dither + ' ', $scope.files[idx].targetpath, 'remix ' + $scope.options.mixdown + ' speed ' + $scope.options.transpose + 'c' + ' trim ' + $scope.files[idx].trimstart + ' ' + $scope.files[idx].trimrange, function (error, stdout, stderr) {
-    soxProcess($scope.files[idx].fullpath, '-b 8 -r ' + $scope.options.samplerate + ' ', $scope.files[idx].targetpath, sinccmd + ' norm 0.5 dither -S remix ' + $scope.options.mixdown  + ' trim ' + $scope.files[idx].trimstart + ' ' + $scope.files[idx].trimrange, function (error, stdout, stderr) {
+
+    soxProcess(infile,' ', outfile, trimcmd + normcmd + remixcmd + filtercmd + ratecmd + lowp + normcmd + dithercmd, function (error, stdout, stderr) {
       if (error) {
         console.log(error);
         console.log(stderr);
@@ -281,7 +289,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
         $scope.statusmsg = "Success!";
         $timeout(function() {
           $scope.statusmsg = "All is well";
-        }, 5000) 
+        }, 5000)
         $scope.$apply();
         if (cb) {
           cb(idx);
