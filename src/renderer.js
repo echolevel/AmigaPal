@@ -25,10 +25,6 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   var dialog = remote.require('electron').dialog;
   var mainProcess = remote.require(__dirname + '/main.js');
   var bitcrusher = require('bitcrusher');
-  var electronLocalshortcut = require('electron-localshortcut');
-  electronLocalshortcut.register(remote.getCurrentWindow(), 'Ctrl+Space', () => {
-    console.log("Got it, finally");
-  })
   $scope.writingWav = false;
   $scope.statusmsg = "All is well";
 
