@@ -16,10 +16,13 @@ Features:
 * .wav and .mp3 files have a waveform display and preview player for selecting time ranges to which the output will be trimmed
 * Estimated (but fairly close) target filesize and duration are calculated on the fly, so you can trim/downsample a sample to fit within your tracker module format's size limit (128kb for Protracker .MOD, though commonly believed to be 64kb - including by some popular replayers)
 * Select a target ProTracker note to automatically set the relevant samplerate
+* Optional preview of how the sample(s) will sound after being downsampled and converted to 8bit - not perfect, but a close approximation! The reduction factor of the samplerate preview is determined by the 'ProTracker target note'/'Sample rate' settings.
+* Lowpass and highpass filters: they can be used separately, or together as a bandpass. Previewing in AmigaPal will let you hear a very close approximation of the way it'll sound in ProTracker.
 * Free entry field for target samplerate (AmigaPal assumes you have a familiarity with your target hardware/software so will know what's best to use here)
 * Mono mixdown options for L+R mix, L channel only, R channel only; or disable Mono to retain the source audio's channel configuration.
+* 'Mono mixdown type' is now also previewed in AmigaPal, so you can check for phase cancellation issues or other unexpected phenomenon.
 * SoX normalises to -0.5db and applies some dithering (-S option)
-* Global volume control for preview audio
+* Global volume control for previewing audio (does not affect output gain/normalisation)
 * Preview audio loops when adjusting trim ranges - the loop you hear is the loop you'll get in the output file
 * All options are saved automatically for next time
 * If you've got a big list of files but want different settings for each of them, just tweak the settings between conversions - they all take immediate effect on any subsequent conversions
@@ -29,7 +32,6 @@ Known Bugs:
 ----------
 
 * The pause icon appears upon sample load before playback has started. After clicking, play/pause behave as expected. This is due to a combination of Angular 2's weird ng-class conditions and HTML5 Audio's convoluted playback state reporting. I'll figure it out eventually.
-* Sometimes the playheads get a bit confused e.g. the playhead on item 0 will move in sync with the playhead on item 1. Doesn't affect operation, but I'll try to fix it anyway.
 
 Installation
 ------------

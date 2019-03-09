@@ -243,11 +243,12 @@
 
 
               <div class="col-5  input-group input-group-sm">
-                <select class="input-group-addon custom-select" ng-model="options.mixdown" style="min-width: 100%" ng-options="value as key for (key, value) in mixdownTypes">>
+                <select class="input-group-addon custom-select" ng-model="options.mixdown" style="min-width: 100%" ng-options="value as key for (key, value) in mixdownTypes" ng-change="setMixdown()">
                 </select>
               </div>
 
               <label class="col-7 col-form-label">Mono mixdown type</label>
+
               <!-- don't know why this exists
               <label class="col-7 offset-md-5 col-form-label">
                 Disable with 'Mono'
@@ -256,29 +257,25 @@
 
             <div class="form-group row">
 
+
               <div class="col-5">
-                <div class="form-check">
-                  <label class="form-check-label" style="margin-top: 6px;">
-                    <input class="form-check-input" type="checkbox"ng-model="options.mono_enabled">
-                  </label>
-                </div>
+                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 0, ceil: 100 }" rz-slider-model="options.playbackvolume"></rzslider>
               </div>
+              <label class="col-7 col-form-label">Playback Volume</label>
 
-              <label class="col-7 col-form-label">8khz lowpass filter</label>
-
-            </div>
-
-            <!-- This doesn't work. Did it ever work? Am I going mad?
-            <div class="form-group row">
-              <label class="col-5 col-form-label">Transpose</label>
-              <div class="col-7 input-group input-group-sm">
-                <input class="form-control" type="number" value="0" step="1" ng-model="options.transpose">
+              <div class="col-5">
+                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 1, ceil: 10000 }" rz-slider-model="options.highpasscutoff"></rzslider>
               </div>
-              <label class="col-7 offset-md-5 col-form-label">
-                100 = 1 semitone
-              </label>
-            </div>
-          -->
+              <label class="col-7 col-form-label">Hi pass: {{options.highpasscutoff}}hz</label>
+
+              <div class="col-5">
+                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 1, ceil: 10000 }" rz-slider-model="options.lowpasscutoff"></rzslider>
+              </div>
+              <label class="col-7 col-form-label">Low pass: {{options.lowpasscutoff}}hz</label>
+
+          </div>
+
+
 
 
 
@@ -305,21 +302,42 @@
               <label class="col-5 col-form-label">SoX path</label>
             </div>
 
+
             <div class="form-group row">
 
-
-              <div class="col-5">
-                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 0, ceil: 100 }" rz-slider-model="options.playbackvolume"></rzslider>
+              <div class="col-4">
+                <div class="form-check">
+                  <label class="form-check-label" style="margin-top: 6px;">
+                    <input class="form-check-input" type="checkbox"ng-model="options.previewSamplerate">
+                  </label>
+                </div>
               </div>
-              <label class="col-7 col-form-label">Playback Volume</label>
-          </div>
+
+              <label class="col-8 col-form-label">Preview samplerate</label>
+
+
+              <div class="col-4">
+                <div class="form-check">
+                  <label class="form-check-label" style="margin-top: 6px;">
+                    <input class="form-check-input" type="checkbox" ng-model="options.preview8bit" ng-change="toggle8bit()">
+                  </label>
+                </div>
+              </div>
+
+              <label class="col-8 col-form-label">Preview 8bit</label>
+
+            </div>
+
+
+
+
 
 
 
           <div class="form-group row">
             <div class="col-12 text-left">
               <div class="btn-group ">
-                  <button type="button" class="btn btn-sm btn-secondary" ng-click="files = [];">
+                  <button type="button" class="btn btn-sm btn-secondary" ng-click="clearAll();">
                     <i class="fa fa-trash-o"></i> Clear all
                 </button>
               </div>
@@ -383,6 +401,7 @@
                 <button type="button" class="btn btn-sm btn-secondary"  ng-click="playerControl($index);">
                   <i class="fa" ng-class="{'fa-play': file.player.paused == true, 'fa-pause': file.player.paused != true}"></i>
                 </button>
+
                 <button type="button" class="btn btn-sm btn-secondary"  ng-click="removeFile($index);">
                   <i class="fa fa-trash-o"></i> Remove
                 </button>

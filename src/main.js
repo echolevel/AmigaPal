@@ -13,11 +13,11 @@ var win = void 0;
 function createWindow() {
   win = new BrowserWindow({
     width: 600,
-    height: 800,
+    height: 830,
     minWidth: 600,
     maxWidth: 600,
-    minHeight: 800,
-    maxHeight: 800,
+    minHeight: 830,
+    maxHeight: 830,
     webPreferences: {
       webSecurity: false,
       allowRunningInsecureContent: true
