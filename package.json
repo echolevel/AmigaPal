@@ -18,6 +18,7 @@
     "bitcrusher": "^0.3.0",
     "dataurl": "^0.1.0",
     "electron-compile": "^6.4.4",
+    "electron-localshortcut": "^3.1.0",
     "electron-squirrel-startup": "^1.0.0",
     "nedb": "^1.8.0",
     "sox.js": "^2.1.0"

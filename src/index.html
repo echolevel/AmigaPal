@@ -38,6 +38,13 @@
         text-shadow: -2px 2px #fff;
         margin-top: -20px;
       }
+      .selected-item {
+        /*
+        box-sizing: border-box;
+        border: solid 1px yellow;
+        margin: 1px;*/
+        box-shadow: inset 0px 0px 0px 1px yellow;
+      }
       input[type="text"], input[type="number"], select, button, input[type="radio"], input[type="checkbox"], textarea {
       outline: none;
       box-shadow:none !important;
@@ -210,7 +217,7 @@
     </style>
   </head>
   <body ng-app="mainApp" ng-controller="MainCtrl">
-    <div class="mainwrap" style="max-width: 600px">
+    <div class="mainwrap" style="max-width: 600px" >
 
       <div class="row global-options">
 
@@ -382,8 +389,10 @@
       </div>
 
       <div ng-if="files.length > 0">
-        <div class="row fileitem" ng-repeat="file in files" on-finish-render="postRender()">
-          <div class="col-3">
+        <div class="row fileitem" ng-repeat="file in files" on-finish-render="postRender()"
+        ng-class="{'selected-item': file.selected == true}"
+        >
+          <div class="col-3" ng-click="itemSelected($index)">
             <!--<audio id="audio-{{$index}}">
               <source ng-src="{{file.fullpath}}" type="audio/wav" />
             </audio>-->
@@ -392,7 +401,7 @@
             <!--Target duration: <span ng-bind="file.outputduration | number: 2"></span> seconds      <br>-->
             Target duration: <span ng-bind="file.trimrange | number: 2"></span>
           </div>
-          <div class="col-6" style="padding: 0 !important">
+          <div class="col-6" style="padding: 0 !important"  ng-click="itemSelected($index)">
 
             <div style="width: 325px; height: 60px;">
               <rzslider style="width: 325px;" class="custom-slider" rz-slider-model="file.trimstart" rz-slider-high="file.trimend" rz-slider-options="file.trimoptions"></rzslider>
@@ -406,7 +415,7 @@
 
           </div>
 
-          <div class="col-3 offset-md-9 text-right">
+          <div class="col-3 offset-md-9 text-right"  ng-click="itemSelected($index)">
             <br>
             <div class="align-middle" style="display: block">
               <div style="padding-bottom: 4px;">

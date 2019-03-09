@@ -8,6 +8,7 @@ var path = require('path');
 var url = require('url');
 var protocol = require('electron').protocol;
 
+
 var win = void 0;
 
 function createWindow() {
@@ -46,6 +47,7 @@ function createWindow() {
       console.error('Failed to register protocol')
     }
   })
+
 
 }
 
