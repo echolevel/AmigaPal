@@ -51,7 +51,18 @@
       }
 
       input[type="text"], input[type="number"], select, input[type="radio"], input[type="checkbox"], textarea {
-      border:1px solid #ccc !important;
+        /*border:1px solid #ccc !important;*/
+      }
+
+      .filter-input {
+        border-radius: 3px;
+        border: 0px !important;
+        background: #595c64;
+        padding: 3px;
+        padding-left: 4px !important;
+        font-size: 10px;
+        color: #fff;
+        outline: none !important;
       }
 
       .mainwrap {
@@ -264,21 +275,49 @@
 
             <div class="form-group row">
 
+              <div class="col-4">
+                <div class="form-check">
+                  <label class="form-check-label" style="margin-top: 6px;">
+                    <input class="form-check-input" type="checkbox"ng-model="options.previewSamplerate">
+                  </label>
+                </div>
+              </div>
+
+              <label class="col-8 col-form-label">Preview sample rate</label>
+
+
+              <div class="col-4">
+                <div class="form-check">
+                  <label class="form-check-label" style="margin-top: 6px;">
+                    <input class="form-check-input" type="checkbox" ng-model="options.preview8bit" ng-change="toggle8bit()">
+                  </label>
+                </div>
+              </div>
+
+              <label class="col-8 col-form-label">Preview 8bit</label>
+
+              <div class="col-4">
+                <div class="form-check">
+                  <label class="form-check-label" style="margin-top: 6px;">
+                    <input class="form-check-input" type="checkbox" ng-model="options.lowpass_enabled">
+                  </label>
+                </div>
+              </div>
+
+              <label class="col-8 col-form-label">8k post-processing lowpass</label>
+
+
+              <!--
+              <div class="col-5">
+                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 1, ceil: 20000 }" rz-slider-model="options.highpasscutoff"></rzslider>
+              </div>
+              <label class="col-7 col-form-label">Hi pass: <input type="number" class="filter-input" style="width: 58px" ng-model="options.highpasscutoff"></input> hz</label>
 
               <div class="col-5">
-                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 0, ceil: 100 }" rz-slider-model="options.playbackvolume"></rzslider>
+                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 1, ceil: 20000 }" rz-slider-model="options.lowpasscutoff"></rzslider>
               </div>
-              <label class="col-7 col-form-label">Playback Volume</label>
-
-              <div class="col-5">
-                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 1, ceil: 10000 }" rz-slider-model="options.highpasscutoff"></rzslider>
-              </div>
-              <label class="col-7 col-form-label">Hi pass: <input type="number" style="width: 58px" ng-model="options.highpasscutoff"></input> hz</label>
-
-              <div class="col-5">
-                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 1, ceil: 10000 }" rz-slider-model="options.lowpasscutoff"></rzslider>
-              </div>
-              <label class="col-7 col-form-label">Lo pass: <input type="number" style="width: 58px" ng-model="options.lowpasscutoff"></input> hz</label>
+              <label class="col-7 col-form-label">Lo pass: <input type="number" class="filter-input" style="width: 58px" ng-model="options.lowpasscutoff"></input> hz</label>
+              -->
 
           </div>
 
@@ -312,36 +351,10 @@
 
             <div class="form-group row">
 
-              <div class="col-4">
-                <div class="form-check">
-                  <label class="form-check-label" style="margin-top: 6px;">
-                    <input class="form-check-input" type="checkbox"ng-model="options.previewSamplerate">
-                  </label>
-                </div>
+              <div class="col-5">
+                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 0, ceil: 100 }" rz-slider-model="options.playbackvolume"></rzslider>
               </div>
-
-              <label class="col-8 col-form-label">Preview samplerate</label>
-
-
-              <div class="col-4">
-                <div class="form-check">
-                  <label class="form-check-label" style="margin-top: 6px;">
-                    <input class="form-check-input" type="checkbox" ng-model="options.preview8bit" ng-change="toggle8bit()">
-                  </label>
-                </div>
-              </div>
-
-              <label class="col-8 col-form-label">Preview 8bit</label>
-
-              <div class="col-4">
-                <div class="form-check">
-                  <label class="form-check-label" style="margin-top: 6px;">
-                    <input class="form-check-input" type="checkbox" ng-model="options.lowpass_enabled">
-                  </label>
-                </div>
-              </div>
-
-              <label class="col-8 col-form-label">8k post lowpass</label>
+              <label class="col-7 col-form-label">Playback volume</label>
 
             </div>
 
@@ -390,7 +403,7 @@
 
       <div ng-if="files.length > 0">
         <div class="row fileitem" ng-repeat="file in files" on-finish-render="postRender()"
-        ng-class="{'selected-item': file.selected == true}"
+        ng-class="{'selected-item': selectedItem == $index}"
         >
           <div class="col-3" ng-click="itemSelected($index)">
             <!--<audio id="audio-{{$index}}">
@@ -401,6 +414,8 @@
             <!--Target duration: <span ng-bind="file.outputduration | number: 2"></span> seconds      <br>-->
             Target duration: <span ng-bind="file.trimrange | number: 2"></span>
           </div>
+
+
           <div class="col-6" style="padding: 0 !important"  ng-click="itemSelected($index)">
 
             <div style="width: 325px; height: 60px;">
@@ -411,7 +426,17 @@
               </div>
             </div>
 
+            <div class="row">
+              <div class="col-5 offset-sm-1" style="padding: 0 !important">
+                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 40, ceil: 20000, logScale:true, onChange: updateItemEffects}" rz-slider-model="file.highpassfrequency" ></rzslider>
+              </div>
+              <div class="col-5 offset-sm-1" style="padding: 0 !important">
+                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 40, ceil: 20000, logScale:true, onChange: updateItemEffects}" rz-slider-model="file.lowpassfrequency" ></rzslider>
+              </div>
 
+              <label class="col-6 col-form-label">Hi pass: <input class="filter-input" type="number" style="width: 58px; padding: 0 !important" ng-model="file.highpassfrequency" ng-change="updateItemEffects($index)"></input> hz</label>
+              <label class="col-6 col-form-label">Lo pass: <input class="filter-input" type="number" style="width: 58px; padding: 0 !important" ng-model="file.lowpassfrequency" ng-change="updateItemEffects($index)"></input> hz</label>
+            </div>
 
           </div>
 
@@ -419,7 +444,7 @@
             <br>
             <div class="align-middle" style="display: block">
               <div style="padding-bottom: 4px;">
-                <button type="button" class="btn btn-sm btn-secondary"  ng-click="playerControl($index);">
+                <button type="button" class="btn btn-sm btn-secondary"  ng-click="playerControl($index);" style="margin-bottom: 4px">
                   <i class="fa" ng-class="{'fa-play': file.player.paused == true, 'fa-pause': file.player.paused != true}"></i>
                 </button>
 

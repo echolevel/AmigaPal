@@ -25,8 +25,10 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   var dialog = remote.require('electron').dialog;
   var mainProcess = remote.require(__dirname + '/main.js');
   var bitcrusher = require('bitcrusher');
+  var intervals = []; // zap this to tidy up orphaned playhead-progress intervals
   $scope.writingWav = false;
   $scope.statusmsg = "All is well";
+  $scope.selectedItem = 0;
 
 
   Number.prototype.map = function (in_min, in_max, out_min, out_max) {
@@ -81,11 +83,11 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       fname_append: "", // disabled for now
       append_type: "suffix",
       mono_enabled: true,
-      lowpass_enabled: true,
+      lowpass_enabled: false,
       playbackvolume: 50,
       soxpath: '/usr/local/bin/',
-      lowpasscutoff: 10000,
-      highpasscutoff: 1,
+      //lowpasscutoff: 10000,
+      //highpasscutoff: 1,
       preview8bit: false,
       previewSamplerate: false
     };
@@ -118,8 +120,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   filterHi.type = "highpass";
   var volumeGain = audioContext.createGain();
 
-  filterLo.connect(filterHi);
-  filterHi.connect(splitter);
+  //filterLo.connect(filterHi);
+  //filterHi.connect(splitter);
   leftGain.gain.setValueAtTime(leftGainLevel, audioContext.currentTime);
   rightGain.gain.setValueAtTime(rightGainLevel, audioContext.currentTime);
   splitter.connect(leftGain, 0);
@@ -165,12 +167,12 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   $scope.removeFile = function(i) {
     $scope.files[i].player.pause();
-    $scope.files[i].preview.disconnect(filterLo);
+    $scope.files[i].filterHi.disconnect(splitter);
     $scope.files[i].player.removeEventListener('timeupdate', function(){
       console.log("eventlistener removed");
     });
     $scope.files.splice(i, 1);
-    //$scope.$apply();
+    intervals.forEach(clearInterval);
   }
 
   $scope.clearAll = function() {
@@ -179,9 +181,10 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       $scope.files[i].player.removeEventListener('timeupdate', function(){
         console.log("eventlistener removed");
       });
-      $scope.files[i].preview.disconnect(filterLo);
+      $scope.files[i].filterHi.disconnect(splitter);
     }
     $scope.files = [];
+    intervals.forEach(clearInterval);
   }
 
   $scope.$watch('options', function () {
@@ -191,6 +194,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     updateGlobalEffects();
 
   }, true);
+
+
 
 
   $scope.$on('ngRepeatFinished', function (ngRepeatFinishedEvent) {});
@@ -266,9 +271,9 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     var outfile = $scope.files[idx].targetpath;
     var depthcmd = ' -b 8';
     var filtercmd = '';
-    if($scope.options.lowpasscutoff < 10000 || $scope.options.highpasscutoff > 1 ) {
+    if($scope.files[idx].lowpassfrequency < 20000 || $scope.files[idx].highpassfrequency > 40 ) {
       //sinccmd = ' sinc ' + $scope.options.highpasscutoff + '-' + $scope.options.lowpasscutoff + ' ';
-      filtercmd = ' highpass -1  ' + $scope.options.highpasscutoff + ' lowpass -1 ' + $scope.options.lowpasscutoff + ' ';
+      filtercmd = ' highpass -1  ' + $scope.files[idx].highpassfrequency + ' lowpass -1 ' + $scope.files[idx].lowpassfrequency + ' ';
     }
     var trimcmd = ' trim ' + $scope.files[idx].trimstart + ' ' + $scope.files[idx].trimrange;
     var remixcmd = ' remix ' + $scope.options.mixdown;
@@ -310,6 +315,18 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       $scope.files[idx].player.pause();
     }
   };
+
+  $scope.playerControlRestart = function(idx) {
+    if($scope.files[idx].player.unplayed) {
+      $scope.files[idx].player.unplayed = false;
+    }
+    if ($scope.files[idx].player.paused) {
+      $scope.files[idx].player.currentTime = 0;
+      $scope.files[idx].player.play();
+    } else {
+      $scope.files[idx].player.pause();
+    }
+  }
 
   $scope.convertAll = function () {
     for (var i in $scope.files) {
@@ -396,6 +413,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
         originalsize: 0,
         outputsize: 0,
         outputduration: 0,
+        lowpassfrequency: 20000,
+        highpassfrequency: 40,
         trimoptions: {
           floor: 0,
           ceil: 0,
@@ -460,13 +479,23 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
       $scope.files.push(tmpfile);
       var i = $scope.files.length - 1;
+      $scope.selectedItem = i;
 
       fs.readFile($scope.files[i].fullpath, (err,data) => {
         if(err) { console.log("failed")} else {
           $scope.files[i].srcdata = dataurl.convert({ data, mimetype: 'audio/wav'});
           $scope.files[i].player = new Audio(dataurl.convert({ data, mimetype: 'audio/wav'}));
           $scope.files[i].preview = audioContext.createMediaElementSource($scope.files[i].player);
-          $scope.files[i].preview.connect(filterLo);
+          $scope.files[i].filterLo = audioContext.createBiquadFilter();
+          $scope.files[i].filterHi = audioContext.createBiquadFilter();
+          $scope.files[i].filterLo.type = "lowpass";
+          $scope.files[i].filterHi.type = "highpass";
+          $scope.files[i].filterLo.frequency.setValueAtTime(20000, audioContext.currentTime);
+          $scope.files[i].filterHi.frequency.setValueAtTime(40, audioContext.currentTime);
+
+          $scope.files[i].preview.connect($scope.files[i].filterLo);
+          $scope.files[i].filterLo.connect($scope.files[i].filterHi);
+          $scope.files[i].filterHi.connect(splitter);
 
           $scope.files[i].player.isPlaying = false;
           $scope.files[i].player.unplayed = true;
@@ -479,7 +508,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
                   var playhead = document.getElementById('playhead-' + i);
                   console.log(playhead.style['left']);
 
-                  setInterval(function () {
+
+                  var tempinterval = setInterval(function () {
 
                         //console.log($scope.files[i].player.currentTime);
                         var phNewpos = Math.round($scope.files[i].player.currentTime.map(0, $scope.files[i].info.duration, 0, 325));
@@ -489,6 +519,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
                           $scope.files[i].player.currentTime = $scope.files[i].trimstart;
                         }
                   }, 30);
+                  intervals.push(tempinterval);
 
                 }
               }
@@ -523,13 +554,6 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   }
 
-  $scope.itemSelected = function(i) {
-    console.log("selected item ", i);
-    for(var f in $scope.files) {
-      $scope.files[f].selected = false;
-    }
-    $scope.files[i].selected = true;
-  }
 
 
   $scope.toggle8bit = function() {
@@ -540,6 +564,16 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       depth = 8;
     }
 
+  }
+
+  $scope.updateItemEffects = function() {
+    if($scope.files) {
+        for (var i in $scope.files) {
+          $scope.files[i].filterLo.frequency.setValueAtTime($scope.files[i].lowpassfrequency, audioContext.currentTime);
+          $scope.files[i].filterHi.frequency.setValueAtTime($scope.files[i].highpassfrequency, audioContext.currentTime);
+        }
+    }
+    return 1;
   }
 
   var updateGlobalEffects = function() {
@@ -558,8 +592,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       leftGain.gain.setValueAtTime(leftGainLevel, audioContext.currentTime);
       rightGain.gain.setValueAtTime(rightGainLevel, audioContext.currentTime);
 
-      filterLo.frequency.value = $scope.options.lowpasscutoff;
-      filterHi.frequency.value = $scope.options.highpasscutoff;
+      //filterLo.frequency.value = $scope.options.lowpasscutoff;
+      //filterHi.frequency.value = $scope.options.highpasscutoff;
 
       if($scope.options.preview8bit) {
           bitcrushNode.bitDepth = 8
@@ -578,5 +612,48 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       volumeGain.gain.setValueAtTime($scope.options.playbackvolume/100, audioContext.currentTime);
 
   }
+
+
+  $scope.itemSelected = function(i) {
+    console.log("selected item ", i);
+    $scope.selectedItem = i;
+    /*
+    for(var f in $scope.files) {
+      $scope.files[f].selected = false;
+    }
+    $scope.files[i].selected = true;
+    */
+  }
+
+  window.addEventListener('keydown', function(e) {
+
+    if(e.keyCode === 27) {
+      for(var i in $scope.files) {
+        $scope.files[i].player.pause();
+      }
+      e.preventDefault();
+    }
+
+    if(e.keyCode === 40) {
+      if($scope.files && $scope.selectedItem < $scope.files.length-1) {
+        $scope.selectedItem++
+        $scope.$apply();
+      }
+      e.preventDefault()
+    }
+
+    if(e.keyCode === 38) {
+      if($scope.files && $scope.selectedItem-1 >= 0) {
+        $scope.selectedItem--;
+        $scope.$apply();
+      }
+      e.preventDefault();
+    }
+
+    if(e.keyCode === 32) {
+      $scope.playerControlRestart($scope.selectedItem);
+      e.preventDefault();
+    }
+  }, true);
 
 });
