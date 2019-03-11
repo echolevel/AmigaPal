@@ -43,7 +43,7 @@
         box-sizing: border-box;
         border: solid 1px yellow;
         margin: 1px;*/
-        box-shadow: inset 0px 0px 0px 1px yellow;
+        box-shadow: inset 0px 0px 0px 1px orange;
       }
       input[type="text"], input[type="number"], select, button, input[type="radio"], input[type="checkbox"], textarea {
       outline: none;
@@ -118,7 +118,7 @@
         width: 8px;
         height: 16px;
         top: auto; /* to remove the default positioning */
-        bottom: 0;
+        bottom: 0;        
         background-color: orange;
         border-top-left-radius: 3px;
         border-top-right-radius: 3px;
@@ -251,7 +251,7 @@
 
              <div class="col-5 input-group input-group-sm" >
                <input class="form-control" type="number" value="0" min="0" step="1" ng-model="options.samplerate">
-               <div class="input-group-addon">Hz</div>
+               <span class="input-group-addon">Hz</span>
              </div>
              <label class="col-7 col-form-label">Sample rate</label>
 
@@ -329,8 +329,8 @@
 
         <div class="col-5">
 
+          <!-- Filetype filter - why does this exist? Can't think of a compelling use-case
             <div class="form-group row">
-
               <div class="col-6  input-group input-group-sm">
                 <input class="form-control" type="text" placeholder=".wav" ng-model="options.filterext">
               </div>
@@ -339,6 +339,7 @@
                 <span ng-if="options.filterext === '*' || options.filterext.length < 1">All files</span>
               </label>
             </div>
+          -->
 
             <div class="form-group row">
 
@@ -374,7 +375,7 @@
               &nbsp;
               <div class="btn-group ">
                   <button type="button" class="btn btn-sm btn-secondary" ng-click="convertAll();">
-                    <i class="fa fa-exchange"></i> Convert all
+                    <i class="fa fa-exchange"></i> Convert {{files.length}}
                 </button>
               </div>
               <br><br>
@@ -422,7 +423,11 @@
               <rzslider style="width: 325px;" class="custom-slider" rz-slider-model="file.trimstart" rz-slider-high="file.trimend" rz-slider-options="file.trimoptions"></rzslider>
               <canvas style="position: absolute; width: 325px; height: 60px; top: 7px; left: 0;" id="wform-canvas-{{$index}}">
               </canvas>
-              <div id="playhead-{{$index}}" style="left: 0; position: absolute; z-index: 3000; background-color: #ff8800; width: 1px; height: 85px; margin-top: -58px">
+              <canvas style="position: absolute; width: 325px; height: 60px; top: 7px; left: 0;" id="spectrum-canvas-{{$index}}">
+              </canvas>
+              <canvas style="position: absolute; width: 325px; height: 60px; top: 7px; left: 0;" id="filter-canvas-{{$index}}">
+              </canvas>
+              <div id="playhead-{{$index}}" style="left: 0; position: absolute; z-index: 3000; background-color: #ff8800; width: 1px; height: 60px; margin-top: -47px">
               </div>
             </div>
 
@@ -455,6 +460,14 @@
               <button class="btn btn-secondary btn-sm" ng-disabled="file.processing" ng-click="processItem($index, null)"><i class="fa fa-exchange"></i> {{file.buttontext}}</button>
             </div>
           </div>
+
+
+          <div class="col-10 offset-sm-2 warning-message">
+            <span style="color: orange;">
+              {{file.warningmessage}}
+            </span>
+          </div>
+
 
         </div>
       </div>

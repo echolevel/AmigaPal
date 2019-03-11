@@ -12,14 +12,14 @@ Features:
 
 * Built with Electron, so should run on MacOS, Windows and Linux
 * Drag and drop files to load, or load an entire directory for batch conversion to 8svx
-* Supports .wav, .mp3, .aiff/.aif and .raw as source audio files, at any bitdepths or samplerates that SoX can handle (lots)
-* .wav and .mp3 files have a waveform display and preview player for selecting time ranges to which the output will be trimmed
+* Supports .wav, .mp3, .ogg, .flac, .aiff/.aif and .raw as source audio files, at any bitdepths or samplerates that SoX can handle (lots)
+* .wav, .mp3, .ogg and .flac files have a waveform display and preview player for selecting time ranges to which the output will be trimmed. .aiff/aif don't display or play back, but can still be converted to 8svx as normal. If your SoX version doesn't have ogg/flac libraries installed, importing those filetypes will fail silently.
 * Estimated (but fairly close) target filesize and duration are calculated on the fly, so you can trim/downsample a sample to fit within your tracker module format's size limit (128kb for Protracker .MOD, though commonly believed to be 64kb - including by some popular replayers)
 * Select a target ProTracker note to automatically set the relevant samplerate
 * Optional preview of how the sample(s) will sound after being downsampled and converted to 8bit - not perfect, but a close approximation! The reduction factor of the samplerate preview is determined by the 'ProTracker target note'/'Sample rate' settings.
 * Lowpass and highpass filters: they can be used separately, or together as a bandpass. Previewing in AmigaPal will let you hear a very close approximation of the way it'll sound in ProTracker. NEW: now these are per-sample, rather than global as before. Also the sliders are now logarithmic, allowing for greater precision at lower frequencies. The fixed 8k post-processing lowpass filter is still global.
 * Free entry field for target samplerate (AmigaPal assumes you have a familiarity with your target hardware/software so will know what's best to use here)
-* Mono mixdown options for L+R mix, L channel only, R channel only; or disable Mono to retain the source audio's channel configuration.
+* Mono mixdown options for L+R mix, L channel only, R channel only. Samples which are already mono aren't affected by this.
 * 'Mono mixdown type' is now also previewed in AmigaPal, so you can check for phase cancellation issues or other unexpected phenomenon.
 * SoX normalises to -0.5db and applies some dithering (-S option)
 * Global volume control for previewing audio (does not affect output gain/normalisation)
@@ -40,8 +40,6 @@ Installation
 ------------
 
 As long as you've got SoX installed, and can find the path to the sox binary, you should be all set. The default path is /usr/local/bin.
-
-soxi is also used to gather initial source file info, calculate target size/duration, and draw the waveform; it *should* be in the same directory as sox got installed to.
 
 CLI
 ---
