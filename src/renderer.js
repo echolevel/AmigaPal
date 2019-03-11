@@ -51,7 +51,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
 
   $scope.working = false;
-  
+
 
   function soxCheck() {
     // Is sox installed? Reachable?
@@ -578,7 +578,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   $scope.removeFile = function(i) {
     $scope.files[i].player.pause();
-    $scope.files[i].filterHi.disconnect(splitter);
+    $scope.files[i].spectrum.connect(bitcrushNode);
     $scope.files[i].player.removeEventListener('timeupdate', function(){
       console.log("eventlistener removed");
     });
@@ -592,7 +592,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       $scope.files[i].player.removeEventListener('timeupdate', function(){
         console.log("eventlistener removed");
       });
-      $scope.files[i].filterHi.disconnect(splitter);
+      $scope.files[i].spectrum.connect(bitcrushNode);
     }
     $scope.files = [];
     intervals.forEach(clearInterval);
