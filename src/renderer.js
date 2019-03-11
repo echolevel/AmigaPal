@@ -51,10 +51,12 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
 
   $scope.working = false;
+  
 
   function soxCheck() {
-    // Is sox installed? Reachable? It should be in the same place as soxi, and soxi gets used first, so we check that first.
-    if($scope.options.soxpath && $scope.options.soxpath.substr(-1) != '/') {
+    // Is sox installed? Reachable?
+    if(process.platform !== 'win32' && $scope.options.soxpath && $scope.options.soxpath.substr(-1) != '/') {
+      // Force a trailing slash for MacOS and Linux
       $scope.options.soxpath += '/';
     }
     exec($scope.options.soxpath + 'sox', function(error, stdout, stderr) {
