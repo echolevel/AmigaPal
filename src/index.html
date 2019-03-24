@@ -5,7 +5,8 @@
     <title>AmigaPal</title>
 
     <link href="../bower_components/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="../bower_components/font-awesome/css/font-awesome.min.css">
+    <!--<link rel="stylesheet" href="../bower_components/font-awesome/css/font-awesome.min.css">-->
+    <script type="text/javascript" src="/Users/echolevel/Sites/amiga/amigapal/node_modules/@fortawesome/fontawesome-free/js/all.js"></script>
     <link rel="stylesheet" href="../bower_components/angularjs-slider/dist/rzslider.css">
     <link rel="stylesheet" href="../bower_components/angular-bootstrap/ui-bootstrap-csp.css"></script>
     <!--<link href="css/style.css" rel="stylesheet">-->
@@ -29,6 +30,17 @@
         height: 100%;
         width: 100%;
       }
+
+      ::-webkit-scrollbar {
+        background-color: #898c94;
+        width: .8em
+      }
+
+      ::-webkit-scrollbar-thumb:window-inactive,
+      ::-webkit-scrollbar-thumb {
+              background:  #595c64
+      }
+
       #logotext {
         font-family: protracker;
         font-size: 34px;
@@ -45,6 +57,18 @@
         margin: 1px;*/
         box-shadow: inset 0px 0px 0px 1px orange;
       }
+
+      input, input[type="text"], input[type="select"], input[type="button"],
+      button, select, .input-group-addon, .btn {
+        background-color: #595c64 !important;
+        border-color: #232323 !important;
+        color: #fff !important;
+      }
+
+      input:hover, select:hover, .btn:hover {
+        background-color: #696c74 !important;
+      }
+
       input[type="text"], input[type="number"], select, button, input[type="radio"], input[type="checkbox"], textarea {
       outline: none;
       box-shadow:none !important;
@@ -118,7 +142,7 @@
         width: 8px;
         height: 16px;
         top: auto; /* to remove the default positioning */
-        bottom: 0;        
+        bottom: 0;
         background-color: orange;
         border-top-left-radius: 3px;
         border-top-right-radius: 3px;
@@ -225,9 +249,34 @@
         background: #555;
       }
 
+      #page-loading {
+        width: 100%;
+        height: 100%;
+        position: fixed;
+        top: 0;
+        left: 0;
+        font-size: 60px;
+        background: #000;
+        opacity: 0.5;
+        z-index: 10;
+      }
+      .spinner {
+        text-align: center;
+        position: relative;
+        margin: 0 auto;
+        top: 50%;
+      }
+
     </style>
   </head>
   <body ng-app="mainApp" ng-controller="MainCtrl">
+
+    <!--
+    <div id="page-loading" ng-show="loading">
+      <div class="spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
+    </div>
+    -->
+
     <div class="mainwrap" style="max-width: 600px" >
 
       <div class="row global-options">
@@ -274,28 +323,6 @@
             </div>
 
             <div class="form-group row">
-
-              <div class="col-4">
-                <div class="form-check">
-                  <label class="form-check-label" style="margin-top: 6px;">
-                    <input class="form-check-input" type="checkbox"ng-model="options.previewSamplerate">
-                  </label>
-                </div>
-              </div>
-
-              <label class="col-8 col-form-label">Preview sample rate</label>
-
-
-              <div class="col-4">
-                <div class="form-check">
-                  <label class="form-check-label" style="margin-top: 6px;">
-                    <input class="form-check-input" type="checkbox" ng-model="options.preview8bit" ng-change="toggle8bit()">
-                  </label>
-                </div>
-              </div>
-
-              <label class="col-8 col-form-label">Preview 8bit</label>
-
               <div class="col-4">
                 <div class="form-check">
                   <label class="form-check-label" style="margin-top: 6px;">
@@ -306,23 +333,11 @@
 
               <label class="col-8 col-form-label">8k post-processing lowpass</label>
 
+            </div>
 
-              <!--
-              <div class="col-5">
-                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 1, ceil: 20000 }" rz-slider-model="options.highpasscutoff"></rzslider>
-              </div>
-              <label class="col-7 col-form-label">Hi pass: <input type="number" class="filter-input" style="width: 58px" ng-model="options.highpasscutoff"></input> hz</label>
-
-              <div class="col-5">
-                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 1, ceil: 20000 }" rz-slider-model="options.lowpasscutoff"></rzslider>
-              </div>
-              <label class="col-7 col-form-label">Lo pass: <input type="number" class="filter-input" style="width: 58px" ng-model="options.lowpasscutoff"></input> hz</label>
-              -->
-
-          </div>
-
-
-
+            <button type="button" class="btn btn-sm btn-secondary"  ng-click="applyToAll();">
+              Apply to all
+            </button>
 
 
         </div>
@@ -359,6 +374,31 @@
 
             </div>
 
+            <div class="form-group row">
+
+              <div class="col-4">
+                <div class="form-check">
+                  <label class="form-check-label" style="margin-top: 6px;">
+                    <input class="form-check-input" type="checkbox"ng-model="options.previewSamplerate">
+                  </label>
+                </div>
+              </div>
+
+              <label class="col-8 col-form-label">Preview sample rate</label>
+
+
+              <div class="col-4">
+                <div class="form-check">
+                  <label class="form-check-label" style="margin-top: 6px;">
+                    <input class="form-check-input" type="checkbox" ng-model="options.preview8bit" ng-change="toggle8bit()">
+                  </label>
+                </div>
+              </div>
+
+              <label class="col-8 col-form-label">Preview 8bit</label>
+
+          </div>
+
 
 
 
@@ -369,13 +409,13 @@
             <div class="col-12 text-left">
               <div class="btn-group ">
                   <button type="button" class="btn btn-sm btn-secondary" ng-click="clearAll();">
-                    <i class="fa fa-trash-o"></i> Clear all
+                    <i class="fas fa-trash-alt"></i> Clear all
                 </button>
               </div>
               &nbsp;
               <div class="btn-group ">
                   <button type="button" class="btn btn-sm btn-secondary" ng-click="convertAll();">
-                    <i class="fa fa-exchange"></i> Convert {{files.length}}
+                    <i class="fas fa-random"></i> Convert {{files.length}}
                 </button>
               </div>
               <br><br>
@@ -393,84 +433,126 @@
 
       <div class="row">
 
-      </div>
+      </div> <!-- file list row end -->
 
 
-      <div class="dropzone" ng-if="files.length <= 0">
-        <div class="droptext">
-          Drop files or folders here
+        <div class="dropzone" ng-if="files.length <= 0">
+          <div class="droptext">
+            Drop files or folders here
+          </div>
         </div>
-      </div>
 
-      <div ng-if="files.length > 0">
-        <div class="row fileitem" ng-repeat="file in files" on-finish-render="postRender()"
-        ng-class="{'selected-item': selectedItem == $index}"
-        >
-          <div class="col-3" ng-click="itemSelected($index)">
-            <!--<audio id="audio-{{$index}}">
-              <source ng-src="{{file.fullpath}}" type="audio/wav" />
-            </audio>-->
-            Target filename: <br><i><span ng-bind="file.targetfilename"></span></i><br>
-            Target filesize: <span ng-bind="file.outputsize | number: 0"></span> bytes <br>
-            <!--Target duration: <span ng-bind="file.outputduration | number: 2"></span> seconds      <br>-->
-            Target duration: <span ng-bind="file.trimrange | number: 2"></span>
-          </div>
-
-
-          <div class="col-6" style="padding: 0 !important"  ng-click="itemSelected($index)">
-
-            <div style="width: 325px; height: 60px;">
-              <rzslider style="width: 325px;" class="custom-slider" rz-slider-model="file.trimstart" rz-slider-high="file.trimend" rz-slider-options="file.trimoptions"></rzslider>
-              <canvas style="position: absolute; width: 325px; height: 60px; top: 7px; left: 0;" id="wform-canvas-{{$index}}">
-              </canvas>
-              <canvas style="position: absolute; width: 325px; height: 60px; top: 7px; left: 0;" id="spectrum-canvas-{{$index}}">
-              </canvas>
-              <canvas style="position: absolute; width: 325px; height: 60px; top: 7px; left: 0;" id="filter-canvas-{{$index}}">
-              </canvas>
-              <div id="playhead-{{$index}}" style="left: 0; position: absolute; z-index: 3000; background-color: #ff8800; width: 1px; height: 60px; margin-top: -47px">
-              </div>
+        <div ng-if="files.length > 0">
+          <div class="row fileitem" ng-repeat="file in files" on-finish-render="postRender()"
+          ng-class="{'selected-item': selectedItem == $index}"
+          scroll-if="$index == selectedItem"
+          >
+            <div class="col-3" ng-click="itemSelected($index)">
+              <!--<audio id="audio-{{$index}}">
+                <source ng-src="{{file.fullpath}}" type="audio/wav" />
+              </audio>-->
+              Target filename: <br><i><span ng-bind="file.targetfilename"></span></i><br>
+              Target filesize: <span ng-bind="file.outputsize | number: 0"></span> bytes <br>
+              <!--Target duration: <span ng-bind="file.outputduration | number: 2"></span> seconds      <br>-->
+              Target duration: <span ng-bind="file.trimrange | number: 2"></span>
             </div>
 
-            <div class="row">
-              <div class="col-5 offset-sm-1" style="padding: 0 !important">
-                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 40, ceil: 20000, logScale:true, onChange: updateItemEffects}" rz-slider-model="file.highpassfrequency" ></rzslider>
-              </div>
-              <div class="col-5 offset-sm-1" style="padding: 0 !important">
-                <rzslider  class="custom-slider2" rz-slider-options="{ floor: 40, ceil: 20000, logScale:true, onChange: updateItemEffects}" rz-slider-model="file.lowpassfrequency" ></rzslider>
+
+            <div class="col-6" style="padding: 0 !important"  ng-click="itemSelected($index)">
+
+              <div style="width: 325px; height: 60px;">
+                <rzslider style="width: 325px;" class="custom-slider" rz-slider-model="file.trimstart" rz-slider-high="file.trimend" rz-slider-options="file.trimoptions"></rzslider>
+                <canvas style="position: absolute; width: 325px; height: 60px; top: 7px; left: 0;" id="wform-canvas-{{$index}}">
+                </canvas>
+                <canvas style="position: absolute; width: 325px; height: 60px; top: 7px; left: 0;" id="spectrum-canvas-{{$index}}">
+                </canvas>
+                <canvas style="position: absolute; width: 325px; height: 60px; top: 7px; left: 0;" id="filter-canvas-{{$index}}">
+                </canvas>
+                <div id="playhead-{{$index}}" style="left: 0; position: absolute; z-index: 3000; background-color: #ff8800; width: 1px; height: 60px; margin-top: -47px">
+                </div>
               </div>
 
-              <label class="col-6 col-form-label">Hi pass: <input class="filter-input" type="number" style="width: 58px; padding: 0 !important" ng-model="file.highpassfrequency" ng-change="updateItemEffects($index)"></input> hz</label>
-              <label class="col-6 col-form-label">Lo pass: <input class="filter-input" type="number" style="width: 58px; padding: 0 !important" ng-model="file.lowpassfrequency" ng-change="updateItemEffects($index)"></input> hz</label>
+              <div class="row">
+                <div class="col-5 offset-sm-1" style="padding: 0 !important">
+                  <rzslider  class="custom-slider2" rz-slider-options="{ floor: 40, ceil: 20000, logScale:true, onChange: updateGlobalEffects}" rz-slider-model="file.highpassfrequency" ></rzslider>
+                </div>
+                <div class="col-5 offset-sm-1" style="padding: 0 !important">
+                  <rzslider  class="custom-slider2" rz-slider-options="{ floor: 40, ceil: 20000, logScale:true, onChange: updateGlobalEffects}" rz-slider-model="file.lowpassfrequency" ></rzslider>
+                </div>
+
+                <label class="col-6 col-form-label">Hi pass: <input class="filter-input" type="number" style="width: 58px; padding: 0 !important" ng-model="file.highpassfrequency" ng-change="updateGlobalEffects()"></input> hz</label>
+                <label class="col-6 col-form-label">Lo pass: <input class="filter-input" type="number" style="width: 58px; padding: 0 !important" ng-model="file.lowpassfrequency" ng-change="updateGlobalEffects()"></input> hz</label>
+              </div>
+
             </div>
 
-          </div>
+            <div class="col-3 offset-md-9 text-right"  ng-click="itemSelected($index)"
+                  style="padding-right: 0">
 
-          <div class="col-3 offset-md-9 text-right"  ng-click="itemSelected($index)">
-            <br>
-            <div class="align-middle" style="display: block">
-              <div style="padding-bottom: 4px;">
-                <button type="button" class="btn btn-sm btn-secondary"  ng-click="playerControl($index);" style="margin-bottom: 4px">
-                  <i class="fa" ng-class="{'fa-play': file.player.paused == true, 'fa-pause': file.player.paused != true}"></i>
-                </button>
+                <div style="padding-bottom: 4px;">
 
-                <button type="button" class="btn btn-sm btn-secondary"  ng-click="removeFile($index);">
-                  <i class="fa fa-trash-o"></i> Remove
-                </button>
-              </div>
-              <button class="btn btn-secondary btn-sm" ng-disabled="file.processing" ng-click="processItem($index, null)"><i class="fa fa-exchange"></i> {{file.buttontext}}</button>
+                  <div class="col-10 offset-sm-2  input-group input-group-sm"
+                      style="padding-right: 6px; padding-bottom: 4px;">
+                    <select class="input-group-addon custom-select"
+                            ng-model="file.samplerate"
+                            style="min-width: 100%"
+                            ng-options="value as key for (key, value) in ptnotes"
+                            ng-change="updateGlobalEffects()"
+                            >
+                    </select>
+                  </div>
+
+                  <div class="col-10 offset-sm-2 input-group input-group-sm" style="padding-right: 6px">
+                    <select class="input-group-addon custom-select" ng-model="file.mixdown" style="min-width: 100%" ng-options="value as key for (key, value) in mixdownTypes"
+                            ng-change="updateGlobalEffects()">
+                    </select>
+                  </div>
+
+                  <div class="col-8 offset-sm-4 input-group input-group-sm" style="padding-right: 4px">
+
+                    <input class="form-check-input" type="checkbox" ng-model="file.postLP_enabled">
+                    <label class="">
+                      8k post LP
+                    </label>
+                  </div>
+
+                  <!--
+                  <button type="button" class="btn btn-sm btn-secondary"  ng-click="playerControl($index);" style="margin-bottom: 4px">
+                    <i class="fa" ng-class="{'fas fa-play': file.player.paused == true, 'fas fa-pause': file.player.paused != true}"></i>
+                  </button>
+                  -->
+
+                </div>
+
+                <div class="buttons-bottomright"
+                      style="position: absolute; bottom: 0; right: 6px;">
+                  <button type="button" class="btn btn-sm btn-secondary"  ng-click="removeFile($index);">
+                    <i class="fas fa-trash-alt"></i>
+                  </button>
+
+                  <button type="button" class="btn btn-sm btn-secondary"  ng-click="playerControl($index);">
+                    <i id="playericon-{{$index}}" class="fas fa-play"></i>
+                  </button>
+
+                  <button class="btn btn-secondary btn-sm" ng-disabled="file.processing" ng-click="processItem($index, null)"><i class="fas fa-random"></i>
+                    <!--{{file.buttontext}}-->
+                  </button>
+                </div>
+
             </div>
+
+
+            <div class="col-10 offset-sm-2 warning-message">
+              <span style="color: orange;">
+                {{file.warningmessage}}
+              </span>
+            </div>
+
+
           </div>
-
-
-          <div class="col-10 offset-sm-2 warning-message">
-            <span style="color: orange;">
-              {{file.warningmessage}}
-            </span>
-          </div>
-
-
         </div>
-      </div>
+
+
 
 
     </div><!--mainwrap end-->

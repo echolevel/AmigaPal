@@ -29,7 +29,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   $scope.writingWav = false;
   $scope.statusmsg = "All is well";
   $scope.selectedItem = 0;
-
+  $scope.loading = false;
 
   Number.prototype.map = function (in_min, in_max, out_min, out_max) {
     return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
@@ -110,13 +110,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   var audioContext = new AudioContext();
   var scriptNode = audioContext.createScriptProcessor(4096, 1, 1);
 
-  var bitcrushNode = bitcrusher(audioContext, {
-    bitDepth: 16,
-    frequency: 1
-  })
-
   var volumeGain = audioContext.createGain();
-  bitcrushNode.connect(volumeGain);
+
   volumeGain.gain.setValueAtTime($scope.options.playbackvolume/100, audioContext.currentTime);
   volumeGain.connect(audioContext.destination);
 
@@ -154,6 +149,10 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   document.body.ondrop = function (ev) {
     var files = ev.dataTransfer.files;
+
+    // show loader. Loading status cheked at end of each waveform draw...seems cheaper
+    // than an AJS watch?
+    $scope.loading = true;
 
     // Is it a file or a directory?
     for (var i = 0, f; f = files[i]; i++) {
@@ -219,6 +218,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       var outfile = infile.substring(0, infile.lastIndexOf('.')) + '.8svx';
 
       var tmpfile = {
+        fullyLoaded: false,
         fullpath: inpath,
         targetpath: outdir + outfile,
         filename: infile,
@@ -241,7 +241,9 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           step: 0.01,
           precision: 2,
           minRange: 0.1,
-          pushRange: true
+          pushRange: true,
+          id: $scope.files.length,
+          onChange: $scope.updateInfo
         },
         info: {
           duration: '',
@@ -341,11 +343,28 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           $scope.files[i].spectrumCtx = $scope.files[i].spectrumcanvas.getContext('2d');
 
           $scope.files[i].outputmerger.connect($scope.files[i].spectrum);
-          $scope.files[i].spectrum.connect(bitcrushNode);
+
+
+          $scope.files[i].bitcrushNode = bitcrusher(audioContext, {
+            bitDepth: 16,
+            frequency: 1
+          })
+
+          $scope.files[i].spectrum.connect($scope.files[i].bitcrushNode);
+
+          $scope.files[i].bitcrushNode.connect(volumeGain);
 
           $scope.files[i].player.isPlaying = false;
           $scope.files[i].player.unplayed = true;
 
+          // Set PT note to whatever the current global note is
+          $scope.files[i].samplerate = $scope.options.samplerate;
+          // Set mixdown to whatever the current global mixdown option is
+          $scope.files[i].mixdown = $scope.options.mixdown;
+          $scope.files[i].postLP_enabled = $scope.options.lowpass_enabled;
+
+          // Fix the trimoptions ID
+          $scope.files[i].trimoptions.id = i;
 
           // This is a bit of a CPU-killer, needless to say. And it's completely unnecessary.
           // But if you really want it, uncomment $scope.files[i].draw(); below!
@@ -368,6 +387,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           }
 
           //$scope.files[i].draw();
+
 
           $scope.files[i].player.addEventListener('timeupdate', function() {
 
@@ -414,8 +434,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
             }
           };
           */
-          $scope.updateItemEffects(i);
-          updateGlobalEffects();
+          //$scope.updateItemEffects(i);
+          $scope.updateGlobalEffects();
         }
 
       }) //fs.readFile end
@@ -427,14 +447,17 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
 
   var drawAudio = function drawAudio(i) {
-
+    // Nothing we do here affects playback audio or the exported sample - display purposes only.
     fs.readFile($scope.files[i].fullpath, function(err, data) {
+      $scope.loading = true;
       if(data && !err) {
         console.log("loaded successfully...");
         var file = new window.Blob([data]);
         var abuffer;
         var fileReader = new FileReader();
+        // Set up what happens after the file's been successfully read
         fileReader.onload = function(event) {
+          // Read the input file to audio data (via a blob)
           abuffer = event.target.result;
           audioContext.decodeAudioData(abuffer, function() {
             console.log("audio decoded");
@@ -446,24 +469,39 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
             $scope.$apply();
           }).then(function(buffer) {
             var audioBuffer = buffer;
+            // Get the item's canvas so we can draw the waveform onto it
             $scope.files[i].canvas = document.getElementById('wform-canvas-' + i);
             var context = $scope.files[i].canvas.getContext('2d');
             var data = buffer.getChannelData(0);
+            // Work out a sensible height and width for the waveform chunks relative to canvas dimensions
             var step = Math.ceil(data.length / $scope.files[i].canvas.width);
             var amp = $scope.files[i].canvas.height / 2;
+            // Find the peak (highest-amplitude sample), then normalise the waveform to that peak value. This
+            // means that quiet samples can be visualised better; the sox process does peak-normalisation
+            // anyway, regardless of what we do here.
+            var peak = data.reduce(function(a, b) {
+              return Math.max(a, b)
+            })
+            var normed = [];
+            for (var b in data) {
+              normed[b] = data[b] * 1/peak;
+            }
+            // Draw the waveform
             for (var k = 0; k < $scope.files[i].canvas.width; k++) {
               var min = 1.0;
               var max = -1.0;
               for (var j = 0; j < step; j++) {
-                var datum = data[k * step + j];
+                var datum = normed[k * step + j];
                 if (datum < min) min = datum;
                 if (datum > max) max = datum;
               }
               context.fillStyle = "#7cca8f";
               context.fillRect(k, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
             }
+
           })
         }
+        // Do the actual file-read
         fileReader.readAsArrayBuffer(file);
       }
     })
@@ -542,8 +580,12 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     }
     if ($scope.files[idx].player.paused) {
       $scope.files[idx].player.play();
+      document.getElementById('playericon-'+idx).classList.remove('fa-play');
+      document.getElementById('playericon-'+idx).classList.add('fa-pause');
     } else {
       $scope.files[idx].player.pause();
+      document.getElementById('playericon-'+idx).classList.remove('fa-pause');
+      document.getElementById('playericon-'+idx).classList.add('fa-play');
     }
   };
 
@@ -554,9 +596,33 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     if ($scope.files[idx].player.paused) {
       $scope.files[idx].player.currentTime = $scope.files[idx].trimstart;
       $scope.files[idx].player.play();
+      document.getElementById('playericon-'+idx).classList.remove('fa-play');
+      document.getElementById('playericon-'+idx).classList.add('fa-pause');
     } else {
       $scope.files[idx].player.pause();
+      document.getElementById('playericon-'+idx).classList.remove('fa-pause');
+      document.getElementById('playericon-'+idx).classList.add('fa-play');
     }
+  }
+
+  $scope.updateInfo = function(idx) {
+    //console.log(idx + " changed");
+    //$scope.files[idx].info.duration = Math.round(stdout * 100) / 100;
+    //$scope.files[idx].trimrange = $scope.files[idx].info.duration;
+    //$scope.files[idx].trimend = $scope.files[idx].info.duration;
+    //$scope.files[idx].trimoptions.ceil = $scope.files[idx].info.duration;
+    $scope.files[idx].trimrange = $scope.files[idx].trimend - $scope.files[idx].trimstart;
+    $scope.files[idx].outputsize = $scope.options.bitdepth * $scope.files[idx].samplerate * $scope.files[idx].trimrange / 8;
+  }
+
+  $scope.applyToAll = function() {
+    for (var i in $scope.files) {
+      $scope.files[i].samplerate = $scope.options.samplerate;
+      $scope.files[i].mixdown = $scope.options.mixdown;
+      $scope.files[i].postLP_enabled = $scope.options.lowpass_enabled;
+      //$scope.updateItemEffects(i);
+    }
+    $scope.updateGlobalEffects();
   }
 
   $scope.convertAll = function () {
@@ -578,7 +644,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   $scope.removeFile = function(i) {
     $scope.files[i].player.pause();
-    $scope.files[i].spectrum.connect(bitcrushNode);
+    $scope.files[i].bitcrushNode.disconnect(volumeGain);
     $scope.files[i].player.removeEventListener('timeupdate', function(){
       console.log("eventlistener removed");
     });
@@ -592,7 +658,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       $scope.files[i].player.removeEventListener('timeupdate', function(){
         console.log("eventlistener removed");
       });
-      $scope.files[i].spectrum.connect(bitcrushNode);
+      $scope.files[i].bitcrushNode.disconnect(volumeGain);
     }
     $scope.files = [];
     intervals.forEach(clearInterval);
@@ -602,7 +668,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     // Always watch for changes to options, and update localstorage
     localStorage.setItem('config', JSON.stringify($scope.options));
 
-    updateGlobalEffects();
+    $scope.updateGlobalEffects();
 
   }, true);
 
@@ -656,30 +722,44 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     ctx.fill();
   }
 
-  $scope.updateItemEffects = function() {
+  /*
+  $scope.updateItemEffects = function(idx) {
+    console.log("Updating item effets for: " + idx);
     if($scope.files) {
         for (var i in $scope.files) {
           drawFilters(i);
         }
     }
+    // Notify loading, decoding and drawing complete?
+    if($scope.loading) {
+        $scope.loading = false;
+        $scope.$apply();
+    }
+
+    updateGlobalEffects();
+
     return 1;
   }
+  */
 
-  var updateGlobalEffects = function() {
-
+  $scope.updateGlobalEffects = function() {
+    console.log("Updating global effects");
     for (var f in $scope.files) {
+
+      drawFilters(f);
+
       if($scope.files[f].info.channelcount > 1) {
 
         var leftGainLevel = 0
         var rightGainLevel = 0;
 
-        if($scope.options.mixdown == '-') {
+        if($scope.files[f].mixdown == '-') {
           leftGainLevel = 0.5;
           rightGainLevel = 0.5;
-        } else if($scope.options.mixdown == '1') {
+        } else if($scope.files[f].mixdown == '1') {
           leftGainLevel = 1;
           rightGainLevel = 0;
-        } else if($scope.options.mixdown == '2') {
+        } else if($scope.files[f].mixdown == '2') {
           leftGainLevel = 0;
           rightGainLevel = 1;
         }
@@ -688,26 +768,22 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
         $scope.files[f].rightGain.gain.setValueAtTime(rightGainLevel, audioContext.currentTime);
       }
 
+      if($scope.options.preview8bit) {
+          $scope.files[f].bitcrushNode.bitDepth = 8
+      } else {
+          $scope.files[f].bitcrushNode.bitDepth = 16
+      }
 
+      if($scope.options.previewSamplerate) {
+          $scope.files[f].bitcrushNode.frequency = $scope.files[f].samplerate.map(0, 44100, 0, 1);
+      } else {
+          $scope.files[f].bitcrushNode.frequency = 1
+      }
+
+      $scope.updateInfo(f);
     }
 
 
-      //filterLo.frequency.value = $scope.options.lowpasscutoff;
-      //filterHi.frequency.value = $scope.options.highpasscutoff;
-
-      if($scope.options.preview8bit) {
-          bitcrushNode.bitDepth = 8
-      } else {
-          bitcrushNode.bitDepth = 16
-      }
-
-      var test = 31388;
-      console.log("Map: ", test.map(0, 44100, 0, 1));
-      if($scope.options.previewSamplerate) {
-          bitcrushNode.frequency = $scope.options.samplerate.map(0, 44100, 0, 1);
-      } else {
-          bitcrushNode.frequency = 1
-      }
 
       volumeGain.gain.setValueAtTime($scope.options.playbackvolume/100, audioContext.currentTime);
 
@@ -719,6 +795,51 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   }
 
   window.addEventListener('keydown', function(e) {
+    console.log("Key: " + e.keyCode);
+
+    // Right arrow: 39
+    // Left arrow: 37
+
+
+    if(e.keyCode === 66) {
+      // B = 'both'
+      $scope.files[$scope.selectedItem].mixdown = '-';
+      $scope.$apply();
+      $scope.updateGlobalEffects();
+    }
+    if(e.keyCode === 76) {
+      // L = 'left'
+      $scope.files[$scope.selectedItem].mixdown = '1';
+      $scope.$apply();
+      $scope.updateGlobalEffects();
+    }
+    if(e.keyCode === 82) {
+      // R = 'right'
+      $scope.files[$scope.selectedItem].mixdown = '2';
+      $scope.$apply();
+      $scope.updateGlobalEffects();
+    }
+
+    if(e.keyCode == 8) {
+      // backspace: remove current item
+      $scope.removeFile($scope.selectedItem);
+      $scope.$apply();      
+    }
+
+    if(e.keyCode === 39) {
+      //right arrow - increment PT note
+      // not sure how to do this the easy way, can't be arsed to do it the hard way
+    }
+
+    if(e.keyCode === 37) {
+      //left arrow - decrement PT note
+      // not sure how to do this the easy way, can't be arsed to do it the hard way
+    }
+
+    if(e.keyCode === 13) {
+      // Return/Enter - convert the currently selected item
+      $scope.processItem($scope.selectedItem, null)
+    }
 
     if(e.keyCode === 27) {
       for(var i in $scope.files) {
@@ -731,16 +852,18 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       if($scope.files && $scope.selectedItem < $scope.files.length-1) {
         $scope.selectedItem++
         $scope.$apply();
+        e.preventDefault()
       }
-      e.preventDefault()
+
     }
 
     if(e.keyCode === 38) {
       if($scope.files && $scope.selectedItem-1 >= 0) {
         $scope.selectedItem--;
         $scope.$apply();
+        e.preventDefault();
       }
-      e.preventDefault();
+
     }
 
     if(e.keyCode === 32) {
@@ -749,4 +872,14 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     }
   }, true);
 
-});
+})
+.directive('scrollIf', function() {
+    return function(scope, element, attrs) {
+        scope.$watch(attrs.scrollIf, function(value) {
+            if (value) {
+                element[0].scrollIntoView({block: "nearest", behavior: "smooth"});
+            }
+        });
+    }
+})
+;
