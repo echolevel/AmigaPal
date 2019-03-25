@@ -528,7 +528,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
     var lowp = "";
     // Got caught out by Nyquist on this one!
-    if($scope.options.samplerate/2 > 8202 && $scope.options.lowpass_enabled) {
+    if($scope.files[idx].samplerate/2 > 8202 && $scope.files[idx].postLP_enabled) {
       lowp = " lowpass 8202";
     }
 
@@ -542,13 +542,13 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     }
     var trimcmd = ' trim ' + $scope.files[idx].trimstart + ' ' + $scope.files[idx].trimrange;
     if($scope.files[idx].info.channelcount > 1) {
-        var remixcmd = ' remix ' + $scope.options.mixdown;
+        var remixcmd = ' remix ' + $scope.files[idx].mixdown;
     } else {
       var remixcmd = '';
     }
     var normcmd = ' norm 0.5';
     var dithercmd = ' dither -S';
-    var ratecmd = ' rate ' + $scope.options.samplerate;
+    var ratecmd = ' rate ' + $scope.files[idx].samplerate;
 
 
     soxProcess(infile,' ', outfile, trimcmd + normcmd + remixcmd + filtercmd + ratecmd + lowp + normcmd + dithercmd, function (error, stdout, stderr) {
@@ -823,7 +823,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     if(e.keyCode == 8) {
       // backspace: remove current item
       $scope.removeFile($scope.selectedItem);
-      $scope.$apply();      
+      $scope.$apply();
     }
 
     if(e.keyCode === 39) {
