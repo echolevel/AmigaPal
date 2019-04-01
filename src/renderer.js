@@ -26,6 +26,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   var mainProcess = remote.require(__dirname + '/main.js');
   var bitcrusher = require('bitcrusher');
   var intervals = []; // zap this to tidy up orphaned playhead-progress intervals
+  var displayCanvasWidth = 325;
   $scope.writingWav = false;
   $scope.statusmsg = "All is well";
   $scope.selectedItem = 0;
@@ -100,7 +101,9 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       //highpasscutoff: 1,
       preview8bit: false,
       previewSamplerate: false,
-      filesizeWarning: -1
+      filesizeWarning: -1,
+      draggable: true,
+      bigFileSize: true
     };
     localStorage.setItem('config', JSON.stringify(options));
     $scope.options = options;
@@ -257,7 +260,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           minRange: 0.1,
           pushRange: true,
           id: $scope.files.length,
-          onChange: $scope.updateInfo
+          onChange: $scope.updateInfo,
+          draggableRange: true
         },
         info: {
           duration: '',
@@ -303,6 +307,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
             tmpfile.trimoptions.ceil = tmpfile.info.duration;
             tmpfile.originalsize = tmpfile.info.bitdepth * tmpfile.info.samplerate * tmpfile.info.channelcount * tmpfile.info.duration / 8;
             tmpfile.outputsize = $scope.options.bitdepth * $scope.options.samplerate * tmpfile.info.duration / 8;
+
             resolve(tmpfile);
           }
         });
@@ -356,11 +361,13 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           $scope.files[i].rightGain.connect($scope.files[i].outputmerger, 0);
 
           $scope.files[i].filtercanvas = document.getElementById('filter-canvas-' + i);
+          $scope.files[i].bytelimitcanvas = document.getElementById('bytelimit-canvas-' + i);
           $scope.files[i].spectrumcanvas = document.getElementById('spectrum-canvas-' + i);
           $scope.files[i].spectrum = audioContext.createAnalyser();
           $scope.files[i].spectrum.fftSize= 128;
           $scope.files[i].spectrumData = new Uint8Array($scope.files[i].spectrum.frequencyBinCount);
           $scope.files[i].spectrumCtx = $scope.files[i].spectrumcanvas.getContext('2d');
+          $scope.files[i].bytelimitCtx = $scope.files[i].bytelimitcanvas.getContext('2d');
 
           $scope.files[i].outputmerger.connect($scope.files[i].spectrum);
 
@@ -555,7 +562,14 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     }
 
     var infile = $scope.files[idx].fullpath;
-    var outfile = $scope.files[idx].targetpath;
+    var outfile;
+    if($scope.options.outputDir && $scope.options.outputDir.length > 0) {
+      var fpath = $scope.files[idx].targetpath;
+      outfile = $scope.options.outputDir + fpath.substr(fpath.lastIndexOf('/'), fpath.length)
+    } else {
+      outfile = $scope.files[idx].targetpath;
+    }
+
     var depthcmd = ' -b 8';
     var filtercmd = '';
     if($scope.files[idx].lowpassfrequency < 20000 || $scope.files[idx].highpassfrequency > 40 ) {
@@ -627,15 +641,48 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     }
   }
 
+  $scope.chooseOutputDir = function() {
+    console.log("choose button clicked");
+    //document.getElementById('outputDirChooser').click();
+    // get this elsewhere with document.getElementById('outputDirChooser').files[0].path
+    var path = dialog.showOpenDialog({
+      properties: ['openDirectory']
+    })
+    if(path.length > 0) {
+      $scope.options.outputDir = path;
+    } else {
+      $scope.options.outputDir = "";
+    }
+
+  }
+
+
   $scope.updateInfo = function(idx) {
-    //console.log(idx + " changed");
-    //$scope.files[idx].info.duration = Math.round(stdout * 100) / 100;
-    //$scope.files[idx].trimrange = $scope.files[idx].info.duration;
-    //$scope.files[idx].trimend = $scope.files[idx].info.duration;
-    //$scope.files[idx].trimoptions.ceil = $scope.files[idx].info.duration;
+    // This is fired when the trim ranges are adjusted. We recalculate all of the length/filesize info and also draw the
+    // 64kb/128kb limit warnings if the option is enabled.
     $scope.files[idx].trimrange = $scope.files[idx].trimend - $scope.files[idx].trimstart;
     $scope.files[idx].outputsize = $scope.options.bitdepth * $scope.files[idx].samplerate * $scope.files[idx].trimrange / 8;
+
+    // Get the x offset position of the trimstart slider in pixels
+    /*
+    var thisMinPtr = document.getElementById('trimslider-'+idx).getElementsByClassName('rz-pointer-min')[0].style.left.slice(0, -2);
+
+    console.log("trimstart pointer position: " + thisMinPtr + "px");
+    console.log("limit64 width: " + $scope.files[idx].limit64width + "px");
+
+    var cnv = $scope.files[idx].bytelimitcanvas;
+    var ctx = $scope.files[idx].bytelimitCtx;
+    ctx.clearRect(0, 0, cnv.width, cnv.height);
+    ctx.beginPath();
+    ctx.fillStyle = "rgba(191, 115, 218, 0.5)";
+    ctx.setTransform(1, 0, 0, 1, thisMinPtr, 0);
+    ctx.rect(0, 0, $scope.files[idx].limit64width, 210);
+    ctx.fill();
+    */
+
   }
+
+
 
   $scope.applyToAll = function() {
     for (var i in $scope.files) {
@@ -666,7 +713,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   $scope.removeFile = function(i) {
     $scope.files[i].player.pause();
-    $scope.files[i].bitcrushNode.disconnect(volumeGain);
+    $scope.files[i].spectrum.disconnect(bitcrushNode);
     $scope.files[i].player.removeEventListener('timeupdate', function(){
       console.log("eventlistener removed");
     });
@@ -680,7 +727,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       $scope.files[i].player.removeEventListener('timeupdate', function(){
         console.log("eventlistener removed");
       });
-      $scope.files[i].bitcrushNode.disconnect(volumeGain);
+      $scope.files[i].spectrum.disconnect(bitcrushNode);
     }
     $scope.files = [];
     intervals.forEach(clearInterval);

@@ -28,6 +28,4 @@
   "config": {
     "forge": "./forge.config.js"
   }
-
-
 }

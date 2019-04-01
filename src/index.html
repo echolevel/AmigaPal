@@ -89,21 +89,34 @@
         outline: none !important;
       }
 
+
+
       .mainwrap {
         margin: 0 auto;
+        position: relative;
       }
 
       .dropzone {
         width: 100%;
-        height: 480px;
+        height: 510px;
         border: dashed 8px #999;
-        border-radius: 30px;
+        border-radius: 5px;
         display: table;
+
       }
       .dropzone .droptext {
         display: table-cell;
         text-align: center;
         vertical-align: middle;
+        padding-bottom: 300px;
+        font-weight: 900;
+        font-size: 24px;
+
+        position: relative;
+        background-image: url('./res/bg.png');
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-position: bottom right;
       }
 
       .filelist {
@@ -270,7 +283,6 @@
     </style>
   </head>
   <body ng-app="mainApp" ng-controller="MainCtrl">
-
     <!--
     <div id="page-loading" ng-show="loading">
       <div class="spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
@@ -333,7 +345,8 @@
               </label>-->
             </div>
 
-            <div class="form-group row">
+
+            <div class="form-group row" style="margin-top: -10px; margin-bottom: 0px">
               <div class="col-4">
                 <div class="form-check">
                   <label class="form-check-label" style="margin-top: 6px;">
@@ -346,9 +359,21 @@
 
             </div>
 
+
             <button type="button" class="btn btn-sm btn-secondary"  ng-click="applyToAll();">
               Apply to all
             </button>
+
+
+            <div class="form-group row" style="margin-top: 14px">
+
+              <div class="col-7 input-group input-group-sm">
+                <input class="form-control" type="text" placeholder="e.g. /Users/yourname/samples" ng-model="options.outputDir">
+                <btn class="input-group-addon" ng-click="chooseOutputDir()">...</btn>
+                <input id="outputDirChooser" type="file" style="display: none" webkitdirectory/>
+              </div>
+              <label class="col-5 col-form-label">Output folder</label>
+            </div>
 
 
         </div>
@@ -472,8 +497,10 @@
             <div class="col-6" style="padding: 0 !important"  ng-click="itemSelected($index)">
 
               <div style="width: 325px; height: 60px;">
-                <rzslider style="width: 325px;" class="custom-slider" rz-slider-model="file.trimstart" rz-slider-high="file.trimend" rz-slider-options="file.trimoptions"></rzslider>
+                <rzslider id="trimslider-{{$index}}"style="width: 325px;" class="custom-slider" rz-slider-model="file.trimstart" rz-slider-high="file.trimend" rz-slider-options="file.trimoptions"></rzslider>
                 <canvas style="position: absolute; width: 325px; height: 60px; top: 7px; left: 0;" id="wform-canvas-{{$index}}">
+                </canvas>
+                <canvas style="position: absolute; width: 325px; height: 60px; top: 7px; left: 0;" id="bytelimit-canvas-{{$index}}">
                 </canvas>
                 <canvas style="position: absolute; width: 325px; height: 60px; top: 7px; left: 0;" id="spectrum-canvas-{{$index}}">
                 </canvas>

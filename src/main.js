@@ -49,6 +49,7 @@ function createWindow() {
   }));
 
 
+  /*
   globalShortcut.register('f5', function() {
 		win.reload()
 	})
@@ -58,7 +59,7 @@ function createWindow() {
   globalShortcut.register('f12', function() {
     win.webContents.openDevTools({mode: 'bottom'});
   })
-
+  */
 
   //win.webContents.openDevTools({mode: 'bottom'});
 
