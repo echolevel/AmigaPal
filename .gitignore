@@ -1,4 +1,5 @@
 release/
+altbuild/
 node_modules/
 bower_components/
 photon-0.1.2-alpha/
