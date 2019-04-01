@@ -47,7 +47,13 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     "Right"  : '2'
   }
 
-  $scope.filetypes = ['wav', 'mp3', 'ogg', 'flac', 'aac', 'aif', 'aiff'];
+  $scope.fileSizes = {
+    "off": -1,
+    ">64kb": 64,
+    ">128kb": 128
+  }
+
+  $scope.filetypes = ['WAV', 'MP3', 'OGG', 'FLAC', 'AAC', 'AIF', 'AIFF'];
 
 
   $scope.working = false;
@@ -93,7 +99,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       //lowpasscutoff: 10000,
       //highpasscutoff: 1,
       preview8bit: false,
-      previewSamplerate: false
+      previewSamplerate: false,
+      filesizeWarning: -1
     };
     localStorage.setItem('config', JSON.stringify(options));
     $scope.options = options;
@@ -111,6 +118,13 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   var scriptNode = audioContext.createScriptProcessor(4096, 1, 1);
 
   var volumeGain = audioContext.createGain();
+  var bitcrushNode = bitcrusher(audioContext, {
+    bitDepth: 16,
+    frequency: 1
+  })
+
+  bitcrushNode.connect(volumeGain);
+
 
   volumeGain.gain.setValueAtTime($scope.options.playbackvolume/100, audioContext.currentTime);
   volumeGain.connect(audioContext.destination);
@@ -164,7 +178,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           for (var i = 0, path; path = dir[i]; i++) {
             // do stuff with path
             var fileExt = path.substring(path.lastIndexOf('.')+1, path.length);
-            if($scope.filetypes.indexOf(fileExt) > -1) {
+            if($scope.filetypes.indexOf(fileExt.toUpperCase()) > -1) {
               var promise = prepItem(files[0].path + '/' + path);
               promise.then(function(tmpfile) {
                 createItem(tmpfile);
@@ -193,7 +207,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
         //createItem(f.path);
         var fileExt = f.path.substring(f.path.lastIndexOf('.')+1, f.path.length);
         console.log(f.path);
-        if($scope.filetypes.indexOf(fileExt) > -1) {
+        if($scope.filetypes.indexOf(fileExt.toUpperCase()) > -1) {
           var promise = prepItem(f.path);
           promise.then(function(tmpfile) {
             console.log("Promise returned, did a thing");
@@ -305,8 +319,14 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
       fs.readFile($scope.files[i].fullpath, (err,data) => {
         if(err) { console.log("failed")} else {
-          $scope.files[i].srcdata = dataurl.convert({ data, mimetype: 'audio/wav'});
-          $scope.files[i].player = new Audio(dataurl.convert({ data, mimetype: 'audio/wav'}));
+          //$scope.files[i].srcdata = dataurl.convert({ data, mimetype: 'audio/wav'});
+          //$scope.files[i].player = new Audio(dataurl.convert({ data, mimetype: 'audio/wav'}));
+
+          // This only works in dev, not in packaged. Which is a pain.
+          //$scope.files[i].player = new Audio($scope.files[i].fullpath);
+          $scope.files[i].player = document.createElement('audio');
+          $scope.files[i].player.src = 'file://' + $scope.files[i].fullpath;
+
           $scope.files[i].preview = audioContext.createMediaElementSource($scope.files[i].player);
           $scope.files[i].filterLo = audioContext.createBiquadFilter();
           $scope.files[i].filterHi = audioContext.createBiquadFilter();
@@ -344,7 +364,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
           $scope.files[i].outputmerger.connect($scope.files[i].spectrum);
 
-
+          /*
           $scope.files[i].bitcrushNode = bitcrusher(audioContext, {
             bitDepth: 16,
             frequency: 1
@@ -353,6 +373,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           $scope.files[i].spectrum.connect($scope.files[i].bitcrushNode);
 
           $scope.files[i].bitcrushNode.connect(volumeGain);
+          */
+          $scope.files[i].spectrum.connect(bitcrushNode);
 
           $scope.files[i].player.isPlaying = false;
           $scope.files[i].player.unplayed = true;
@@ -396,8 +418,6 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
                   // Move the playhead smoothly
                   var playhead = document.getElementById('playhead-' + i);
-                  console.log(playhead.style['left']);
-
 
                   var tempinterval = setInterval(function () {
 
@@ -498,7 +518,9 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
               context.fillStyle = "#7cca8f";
               context.fillRect(k, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
             }
-
+            // Try deleting the buffer now that the waveform's been drawn
+            // to canvas. Hopefully save some memory.
+            buffer = null;
           })
         }
         // Do the actual file-read
@@ -667,7 +689,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   $scope.$watch('options', function () {
     // Always watch for changes to options, and update localstorage
     localStorage.setItem('config', JSON.stringify($scope.options));
-
+    $scope.updateFilesizeWarnings();
     $scope.updateGlobalEffects();
 
   }, true);
@@ -769,15 +791,15 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       }
 
       if($scope.options.preview8bit) {
-          $scope.files[f].bitcrushNode.bitDepth = 8
+          bitcrushNode.bitDepth = 8
       } else {
-          $scope.files[f].bitcrushNode.bitDepth = 16
+          bitcrushNode.bitDepth = 16
       }
 
       if($scope.options.previewSamplerate) {
-          $scope.files[f].bitcrushNode.frequency = $scope.files[f].samplerate.map(0, 44100, 0, 1);
+          bitcrushNode.frequency = $scope.files[$scope.selectedItem].samplerate.map(0, 44100, 0, 1);
       } else {
-          $scope.files[f].bitcrushNode.frequency = 1
+          bitcrushNode.frequency = 1
       }
 
       $scope.updateInfo(f);
@@ -789,9 +811,28 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   }
 
+  $scope.updateFilesizeWarnings = function() {
+
+  }
+
 
   $scope.itemSelected = function(i) {
+    // Cache the previously selected item, get the newly selected item
+    var prevSelected = $scope.selectedItem;
     $scope.selectedItem = i;
+
+    // If Preview sample rate is enabled, force monotimbral playback (one sample at a time).
+    // If not, go nuts!
+    if($scope.options.previewSamplerate) {
+        if(!$scope.files[prevSelected].player.paused) {
+          $scope.files[prevSelected].player.pause();
+          $scope.playerControlRestart(i);
+        }
+        bitcrushNode.frequency = $scope.files[$scope.selectedItem].samplerate.map(0, 44100, 0, 1);
+    } else {
+      bitcrushNode.frequency = 1
+    }
+
   }
 
   window.addEventListener('keydown', function(e) {
@@ -850,7 +891,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
     if(e.keyCode === 40) {
       if($scope.files && $scope.selectedItem < $scope.files.length-1) {
-        $scope.selectedItem++
+        $scope.itemSelected($scope.selectedItem+1);
         $scope.$apply();
         e.preventDefault()
       }
@@ -859,7 +900,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
     if(e.keyCode === 38) {
       if($scope.files && $scope.selectedItem-1 >= 0) {
-        $scope.selectedItem--;
+        $scope.itemSelected($scope.selectedItem-1);
         $scope.$apply();
         e.preventDefault();
       }

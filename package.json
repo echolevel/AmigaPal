@@ -16,44 +16,18 @@
     "electron-prebuilt-compile": "4.0.0"
   },
   "dependencies": {
+    "@electron-forge/plugin-webpack": "^6.0.0-beta.34",
     "bitcrusher": "^0.3.0",
     "dataurl": "^0.1.0",
     "electron-compile": "^6.4.4",
+    "electron-packager": "^13.1.1",
     "electron-squirrel-startup": "^1.0.0",
     "nedb": "^1.8.0",
     "sox.js": "^2.1.0"
   },
   "config": {
-    "forge": {
-      "make_targets": {
-        "win32": [
-          "squirrel"
-        ],
-        "darwin": [
-          "zip"
-        ],
-        "linux": [
-          "deb",
-          "rpm"
-        ]
-      },
-      "electronPackagerConfig": {
-        "packageManager": "npm",
-        "asar": true
-      },
-      "electronWinstallerConfig": {
-        "name": "amigapal"
-      },
-      "electronInstallerDebian": {},
-      "electronInstallerRedhat": {},
-      "github_repository": {
-        "owner": "",
-        "name": ""
-      },
-      "windowsStoreConfig": {
-        "packageName": "",
-        "name": "amigapal"
-      }
-    }
+    "forge": "./forge.config.js"
   }
+
+
 }

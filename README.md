@@ -12,7 +12,7 @@ Features:
 
 * Built with Electron, so should run on MacOS, Windows and Linux
 * Drag and drop files to load, or load an entire directory for batch conversion to 8svx
-* Supports .wav, .mp3, .ogg, .flac, .aiff/.aif and .raw as source audio files, at any bitdepths or samplerates that SoX can handle (lots)
+* Supports .wav, .mp3, .ogg, .flac, .aiff/.aif and .aac as source audio files, at any bitdepths or samplerates that SoX can handle (lots)
 * .wav, .mp3, .ogg and .flac files have a waveform display and preview player for selecting time ranges to which the output will be trimmed. .aiff/aif don't display or play back, but can still be converted to 8svx as normal. If your SoX version doesn't have ogg/flac libraries installed, importing those filetypes will fail silently.
 * Estimated (but fairly close) target filesize and duration are calculated on the fly, so you can trim/downsample a sample to fit within your tracker module format's size limit (128kb for Protracker .MOD, though commonly believed to be 64kb - including by some popular replayers)
 * Select a target ProTracker note to automatically set the relevant samplerate
@@ -33,10 +33,13 @@ Features:
 
 
 
-Known Bugs:
+Known Bugs / To Do:
 ----------
+* While I've dramatically reduced memory footprint after loading large numbers of samples for batch conversion (by fixing the packaged version's ability to stream local files from disk), sometimes playback can suffer serious glitching if 'Preview sample rate' and 'Preview 8bit' are enabled. This is because every sample item has its own discrete processing chain for these DSP effects, rather than sharing one global chain as they did previously (before I introduced per-sample PT target note). Possible solutions include reverting to a single global lofi preview chain controlled by the global PT target note settings (and ignoring the per-file note setting); abandoning polyphonic sample playback (which would be a shame as it's nice to hear how samples will layer up); having a separate play button for 'lofi play' which kills all other currently playing samples but allows you to preview at the current sample's PT target note; ditching sample rate preview altogether (8bit preview would remain).
 
-* The pause icon appears upon sample load before playback has started. After clicking, play/pause behave as expected. This is due to a combination of Angular 2's weird ng-class conditions and HTML5 Audio's convoluted playback state reporting. I'll figure it out eventually.
+* I might reinstate the old 'output directory' option, because selecting ~50 8svx files from amongst ~50 wav files in order to transfer them to Amiga can be a bit of a pain...
+
+* It would be nice to be able to layer/mix samples in AmigaPal. You can do it in ProTracker, of course, but mixing at higher sample rates/bit depths might give better results in the end. We'd need to be able to select multiple samples, and also decide on an output filename template. Low priority for now!
 
 Installation
 ------------

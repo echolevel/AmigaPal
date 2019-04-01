@@ -1,17 +1,29 @@
 'use strict';
 
-var _require = require('electron'),
-    app = _require.app,
-    BrowserWindow = _require.BrowserWindow;
+const { app, BrowserWindow, protocol } = require('electron')
+const path = require('path')
+const url = require('url')
+const globalShortcut = require('electron').globalShortcut;
 
-var path = require('path');
-var url = require('url');
-var protocol = require('electron').protocol;
-
+// THIS fixes the issue of local file paths not being reachable after AmigaPal has been packaged.
+// No idea why, it just does.
+import { addBypassChecker } from 'electron-compile';
+addBypassChecker((filePath) => {
+  return filePath.indexOf(app.getAppPath()) === -1 && (
+      /.WAV/i.test(filePath) ||
+      /.MP3/i.test(filePath) ||
+      /.OGG/i.test(filePath)  ||
+      /.FLAC/i.test(filePath)  ||
+      /.AIFF/i.test(filePath)  ||
+      /.AIF/i.test(filePath)  ||
+      /.AAC/i.test(filePath)
+    );
+});
 
 var win = void 0;
 
 function createWindow() {
+
   win = new BrowserWindow({
     width: 600,
     height: 830,
@@ -19,6 +31,7 @@ function createWindow() {
     maxWidth: 600,
     minHeight: 830,
     maxHeight: 830,
+    icon: path.resolve(__dirname, 'res/Icon.icns'),
     webPreferences: {
       webSecurity: false,
       allowRunningInsecureContent: true
@@ -27,11 +40,25 @@ function createWindow() {
     //,maxWidth: 940
   });
 
+
+
   win.loadURL(url.format({
     pathname: path.join(__dirname, 'index.html'),
     protocol: 'file',
     slashes: true
   }));
+
+
+  globalShortcut.register('f5', function() {
+		win.reload()
+	})
+	globalShortcut.register('CommandOrControl+R', function() {
+		win.reload()
+	})
+  globalShortcut.register('f12', function() {
+    win.webContents.openDevTools({mode: 'bottom'});
+  })
+
 
   //win.webContents.openDevTools({mode: 'bottom'});
 
@@ -39,19 +66,22 @@ function createWindow() {
     win = null;
   });
 
-  protocol.interceptFileProtocol('file', function(req, callback) {
-    var url = req.url.substr(7);
-    callback({path: path.normalize(__dirname + url)})
-  }, function(error) {
-    if(error) {
-      console.error('Failed to register protocol')
-    }
-  })
+
 
 
 }
 
-app.on('ready', createWindow);
+app.on('ready', () => {
+
+  protocol.interceptFileProtocol('file', (request, callback) => {
+    const url = request.url.substr(7)    /* all urls start with 'file://' */
+    callback({ path: path.normalize(`${__dirname}/${url}`) })
+  }, (err) => {
+    if (err) console.error('Failed to register protocol')
+  })
+
+  createWindow()
+})
 
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') {
@@ -59,8 +89,9 @@ app.on('window-all-closed', function () {
   }
 });
 
+/*
 app.on('activate', function () {
   if (win === null) {
     createWindow();
   }
-});
+});*/
