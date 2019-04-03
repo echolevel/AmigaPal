@@ -15,20 +15,47 @@
         font-family: protracker;
         src: url('../fonts/protracker.ttf');
       }
+      @font-face {
+        font-family: microknight;
+        src: url('../fonts/MicroKnight.ttf');
+      }
 
       html {
         height: 100%;
       }
 
       body {
-        padding: 20px;
+
         /*background-color: #f5f5f4;*/
         background-color: #292c34;
         color: #a2a7b6;
-        font-family: system,-apple-system,".SFNSDisplay-Regular","Helvetica Neue",Helvetica,"Segoe UI",sans-serif !important;
+        color: #fff;
+        font-family: "microknight", system,-apple-system,".SFNSDisplay-Regular","Helvetica Neue",Helvetica,"Segoe UI",sans-serif !important;
+        /*letter-spacing: 1px;*/
         font-size: 13px;
+        font-weight: 500;
         height: 100%;
         width: 100%;
+        overflow: hidden;
+        -webkit-user-select: none;
+      }
+
+      #dragbar {
+        width: 100%;
+        height: 25px;
+        text-align: center;
+        position: fixed;
+        top: 0;
+
+        padding: 4px;
+        cursor: default;
+        -webkit-app-region: drag !important;
+        -webkit-user-select: none;
+        z-index: 2000;
+      }
+
+      #dragbar #titletext {
+        font-size: 14px;
       }
 
       ::-webkit-scrollbar {
@@ -63,6 +90,9 @@
         background-color: #595c64 !important;
         border-color: #232323 !important;
         color: #fff !important;
+        font-weight: bold !important;
+        font-family: "microknight", system,-apple-system,".SFNSDisplay-Regular","Helvetica Neue",Helvetica,"Segoe UI",sans-serif !important;
+        letter-spacing: 1px;
       }
 
       input:hover, select:hover, .btn:hover {
@@ -72,10 +102,12 @@
       input[type="text"], input[type="number"], select, button, input[type="radio"], input[type="checkbox"], textarea {
       outline: none;
       box-shadow:none !important;
+      font-weight: bold !important;
       }
 
       input[type="text"], input[type="number"], select, input[type="radio"], input[type="checkbox"], textarea {
         /*border:1px solid #ccc !important;*/
+        font-weight: bold !important;
       }
 
       .filter-input {
@@ -94,29 +126,61 @@
       .mainwrap {
         margin: 0 auto;
         position: relative;
+        padding-bottom: 0 !important;
       }
 
       .dropzone {
-        width: 100%;
-        height: 510px;
+        width: 560px;
+        height: 535px;
+        padding-bottom: 0 !important;
+        margin-left: 20px !important;
+        margin-right: 20px !important;
         border: dashed 8px #999;
         border-radius: 5px;
         display: table;
 
       }
-      .dropzone .droptext {
+      .dropzone .droptext, .dropzone2 .droptext2 {
         display: table-cell;
         text-align: center;
         vertical-align: middle;
-        padding-bottom: 300px;
+        padding-bottom: 100px;
         font-weight: 900;
-        font-size: 24px;
+        font-size: 16px;
+
 
         position: relative;
+        /*
         background-image: url('./res/bg.png');
         background-size: cover;
         background-repeat: no-repeat;
         background-position: bottom right;
+        */
+      }
+
+      .drop2wrap {
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-bottom: 20px;
+      }
+      .dropzone2 {
+        border: dashed 8px #999;
+        border-radius: 5px;
+        display: table;
+        width: 550px;
+        height: 210px;
+        margin-left: -20px;
+        margin-top: 20px;
+      }
+      .droptext2 {
+        font-size: 14px !important;
+        padding-bottom: 0 !important;
+      }
+
+      .dropicon {
+        font-size: 54px;
+        margin: 20px;
+        text-align: center;
       }
 
       .filelist {
@@ -129,18 +193,39 @@
       }
 
       .global-options {
+        background-image: url('./res/bg.png');
+        background-size: contain;
+        background-size: 378px;
+        background-repeat: no-repeat;
+        background-position: 216px 30px;
+        padding-top: 28px;
+        padding-left: 20px;
+        padding-right: 20px;
+        text-shadow: 2px 2px #000;
+      }
+
+      .filewrap {
+        overflow-y: scroll;
+        padding-left: 20px;
+        padding-right: 20px;
+        height: 554px;
 
       }
 
       .fileitem {
         padding-top: 6px;
         padding-bottom: 6px;
-        min-width: 100%
+        min-width: 100%;
+        color: #ccc;
       }
 
       .fileitem:nth-child(odd){
         /*background-color: #e8e8e8;*/
         background-color: #393c44;
+      }
+
+      .fileitem:last-child {
+        margin-bottom: 20px;
       }
 
       .custom-slider.rzslider .rz-bar {
@@ -280,6 +365,27 @@
         top: 50%;
       }
 
+      .infotext {
+        font-weight: 300 !important;
+        color: #fff;
+      }
+      .dirselect-addon {
+        transition: ease-in-out 0.2s;
+      }
+      .dirselect-addon:hover {
+        cursor: default;
+        transition: ease-in-out 0.2s;
+        background-color: #696c74 !important;
+      }
+
+      .btn svg {
+        vertical-align: middle !important;
+        margin-top: -3px !important;
+      }
+      .filewrap .btn svg {
+        margin-top: 0px !important;
+      }
+
     </style>
   </head>
   <body ng-app="mainApp" ng-controller="MainCtrl">
@@ -288,7 +394,11 @@
       <div class="spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
     </div>
     -->
-
+    <div id="dragbar">
+      <div id="titletext">
+        AmigaPal
+      </div>
+    </div>
     <div class="mainwrap" style="max-width: 600px" >
 
       <div class="row global-options">
@@ -316,7 +426,7 @@
                <select class="input-group-addon custom-select" ng-model="options.samplerate" style="min-width: 100%" ng-options="value as key for (key, value) in ptnotes">
                </select>
              </div>
-             <label class="col-7 col-form-label">ProTracker target note</label>
+             <label class="col-7 col-form-label">ProTracker note</label>
            </div>
 
            <div class="form-group row">
@@ -337,7 +447,7 @@
                 </select>
               </div>
 
-              <label class="col-7 col-form-label">Mono mixdown type</label>
+              <label class="col-7 col-form-label">Mono mixdown</label>
 
               <!-- don't know why this exists
               <label class="col-7 offset-md-5 col-form-label">
@@ -346,8 +456,8 @@
             </div>
 
 
-            <div class="form-group row" style="margin-top: -10px; margin-bottom: 0px">
-              <div class="col-4">
+            <div class="form-group row" style="margin-top: -20px; margin-bottom: 0px">
+              <div class="col-5 text-right">
                 <div class="form-check">
                   <label class="form-check-label" style="margin-top: 6px;">
                     <input class="form-check-input" type="checkbox" ng-model="options.lowpass_enabled">
@@ -355,24 +465,27 @@
                 </div>
               </div>
 
-              <label class="col-8 col-form-label">8k post-processing lowpass</label>
+              <label class="col-7 col-form-label" style="padding-top: 10px;">8k lowpass (post)</label>
 
             </div>
 
+          <div class="form-group row">
+            <div class="col-5">
+              <button type="button" class="btn btn-sm btn-secondary"  ng-click="applyToAll();" style="line-height: 20px">
+                Apply to all
+              </button>
+            </div>
 
-            <button type="button" class="btn btn-sm btn-secondary"  ng-click="applyToAll();">
-              Apply to all
-            </button>
-
+          </div>
 
             <div class="form-group row" style="margin-top: 14px">
 
               <div class="col-7 input-group input-group-sm">
                 <input class="form-control" type="text" placeholder="e.g. /Users/yourname/samples" ng-model="options.outputDir">
-                <btn class="input-group-addon" ng-click="chooseOutputDir()">...</btn>
+                <btn class="input-group-addon dirselect-addon" ng-click="chooseOutputDir()">...</btn>
                 <input id="outputDirChooser" type="file" style="display: none" webkitdirectory/>
               </div>
-              <label class="col-5 col-form-label">Output folder</label>
+              <label class="col-5 col-form-label">Output</label>
             </div>
 
 
@@ -401,18 +514,18 @@
             </div>
 
 
-            <div class="form-group row">
+            <div class="form-group row" style="margin-top: 0px; margin-bottom: 0px">
 
-              <div class="col-5">
+              <div class="col-4">
                 <rzslider  class="custom-slider2" rz-slider-options="{ floor: 0, ceil: 100 }" rz-slider-model="options.playbackvolume"></rzslider>
               </div>
-              <label class="col-7 col-form-label">Playback volume</label>
+              <label class="col-8 col-form-label" >Playback volume</label>
 
             </div>
 
-            <div class="form-group row">
+            <div class="form-group row" style="margin-top: -10px; margin-bottom: 0px">
 
-              <div class="col-4">
+              <div class="col-4 text-left">
                 <div class="form-check">
                   <label class="form-check-label" style="margin-top: 6px;">
                     <input class="form-check-input" type="checkbox"ng-model="options.previewSamplerate">
@@ -420,10 +533,13 @@
                 </div>
               </div>
 
-              <label class="col-8 col-form-label">Preview sample rate</label>
+              <label class="col-8 col-form-label" style="padding-top: 8px;">Preview sample rate</label>
 
+            </div>
 
-              <div class="col-4">
+            <div class="form-group row" style="margin-top: -10px; margin-bottom: 0px">
+
+              <div class="col-4 text-left">
                 <div class="form-check">
                   <label class="form-check-label" style="margin-top: 6px;">
                     <input class="form-check-input" type="checkbox" ng-model="options.preview8bit" ng-change="toggle8bit()">
@@ -431,7 +547,7 @@
                 </div>
               </div>
 
-              <label class="col-8 col-form-label">Preview 8bit</label>
+              <label class="col-8 text-left col-form-label" style="padding-top: 8px;">Preview 8bit</label>
 
           </div>
 
@@ -441,21 +557,23 @@
 
 
 
-          <div class="form-group row">
-            <div class="col-12 text-left">
-              <div class="btn-group ">
-                  <button type="button" class="btn btn-sm btn-secondary" ng-click="clearAll();">
-                    <i class="fas fa-trash-alt"></i> Clear all
-                </button>
+          <div class="form-group row" style="position: absolute; bottom: 0; margin-bottom: 14px; margin-right: 0px; right: 0;">
+            <div class="col-12 text-right">
+
+              <div class="col-12 text-right" style="padding-top: 5px; margin-bottom: 5px; padding-right: 0px;">
+                <strong>STATUS: <span style="color: #7cca8f;">{{statusmsg}}</span></strong>
               </div>
-              &nbsp;
-              <div class="btn-group ">
-                  <button type="button" class="btn btn-sm btn-secondary" ng-click="convertAll();">
-                    <i class="fas fa-random"></i> Convert {{files.length}}
+
+
+                  <button type="button" style="line-height: 20px" class="btn btn-sm btn-secondary btn-block" ng-click="clearAll();">
+                    <i class="fas fa-trash-alt" ></i> <span style="padding-top: 7px !important;">Clear all</span>
                 </button>
-              </div>
-              <br><br>
-              <strong>STATUS: <span style="color: #7cca8f;">{{statusmsg}}</span></strong>
+
+
+                  <button type="button" style="line-height: 20px"  class="btn btn-sm btn-secondary btn-block" ng-click="convertAll();">
+                    <i class="fas fa-random" ></i> Convert {{files.length}}
+                </button>
+
             </div>
           </div>
 
@@ -474,11 +592,17 @@
 
         <div class="dropzone" ng-if="files.length <= 0">
           <div class="droptext">
-            Drop files or folders here
+
+            DROP FILES OR FOLDERS HERE
+            <br/>
+            <!--<i class="fas fa-file-audio dropicon"></i>-->
+            <!--<i class="fas fa-folder dropicon"></i>-->
+            <br/>
+            <i class="fas fa-angle-double-down dropicon"></i>
           </div>
         </div>
 
-        <div ng-if="files.length > 0">
+        <div class="filewrap" ng-if="files.length > 0">
           <div class="row fileitem" ng-repeat="file in files" on-finish-render="postRender()"
           ng-class="{'selected-item': selectedItem == $index}"
           scroll-if="$index == selectedItem"
@@ -487,10 +611,10 @@
               <!--<audio id="audio-{{$index}}">
                 <source ng-src="{{file.fullpath}}" type="audio/wav" />
               </audio>-->
-              Target filename: <br><i><span ng-bind="file.targetfilename"></span></i><br>
-              Target filesize: <span ng-bind="file.outputsize | number: 0"></span> bytes <br>
+              Target filename: <br><span class="infotext" ng-bind="file.targetfilename"></span><br>
+              Target filesize: <span class="infotext" ng-bind="file.outputsize | number: 0"></span> bytes <br>
               <!--Target duration: <span ng-bind="file.outputduration | number: 2"></span> seconds      <br>-->
-              Target duration: <span ng-bind="file.trimrange | number: 2"></span>
+              Target duration: <span class="infotext" ng-bind="file.trimrange | number: 2"></span>
             </div>
 
 
@@ -518,8 +642,8 @@
                   <rzslider  class="custom-slider2" rz-slider-options="{ floor: 40, ceil: 20000, logScale:true, onChange: updateGlobalEffects}" rz-slider-model="file.lowpassfrequency" ></rzslider>
                 </div>
 
-                <label class="col-6 col-form-label">Hi pass: <input class="filter-input" type="number" style="width: 58px; padding: 0 !important" ng-model="file.highpassfrequency" ng-change="updateGlobalEffects()"></input> hz</label>
-                <label class="col-6 col-form-label">Lo pass: <input class="filter-input" type="number" style="width: 58px; padding: 0 !important" ng-model="file.lowpassfrequency" ng-change="updateGlobalEffects()"></input> hz</label>
+                <label class="col-6 col-form-label">Lo cut: <input class="filter-input" type="number" style="width: 58px; padding: 0 !important" ng-model="file.highpassfrequency" ng-change="updateGlobalEffects()"></input> hz</label>
+                <label class="col-6 col-form-label">Hi cut: <input class="filter-input" type="number" style="width: 58px; padding: 0 !important" ng-model="file.lowpassfrequency" ng-change="updateGlobalEffects()"></input> hz</label>
               </div>
 
             </div>
@@ -588,7 +712,20 @@
 
 
           </div>
-        </div>
+
+
+          <div class="drop2wrap">
+            <div class="dropzone2" ng-if="files.length > 0">
+              <div class="droptext2">
+                DROP MORE FILES OR FOLDERS HERE
+                <br/>
+                <i class="fas fa-angle-double-down dropicon"></i>
+              </div>
+            </div>
+          </div>
+
+
+        </div><!-- ng-if files > 0 end -->
 
 
 

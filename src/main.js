@@ -31,6 +31,7 @@ function createWindow() {
     maxWidth: 600,
     minHeight: 830,
     maxHeight: 830,
+    titleBarStyle: 'hidden',
     icon: path.resolve(__dirname, 'res/Icon.icns'),
     webPreferences: {
       webSecurity: false,

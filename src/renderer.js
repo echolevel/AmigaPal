@@ -522,7 +522,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
                 if (datum < min) min = datum;
                 if (datum > max) max = datum;
               }
-              context.fillStyle = "#7cca8f";
+              //context.fillStyle = "#7cca8f";
+              context.fillStyle = "#37946e";
               context.fillRect(k, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
             }
             // Try deleting the buffer now that the waveform's been drawn
@@ -774,7 +775,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     var cnv = $scope.files[i].filtercanvas;
     var ctx = cnv.getContext('2d');
     ctx.clearRect(0, 0, cnv.width, cnv.height);
-    ctx.fillStyle = "rgba(191, 115, 218, 0.5)";
+    ctx.fillStyle = "rgba(171, 115, 218, 0.5)";
     ctx.beginPath();
     ctx.moveTo(0, 70);
     ctx.lineTo(toLin($scope.files[i].highpassfrequency, $scope.files[i].filtercanvas.width), 70);
