@@ -53,7 +53,19 @@ to add it when packaging.
 Installation
 ------------
 
+**MacOS/Linux**
+
 As long as you've got SoX installed, and can find the path to the sox binary, you should be all set. The default path is /usr/local/bin.
+
+**Windows**
+
+This is a bit more involved:
+* Don't put AmigaPal in Program Files or Program Files (x86)
+* Copy sox.exe into the same directory as AmigaPal
+* Enter ".\\" as the sox path
+* Leave the output directory blank (by default AmigaPal will place converted files in the same directory as the source files)
+
+I'll fix this when I get a chance - it seems my dir path code isn't as OS-agnostic as I thought it was. Many thanks to comatron (http://comatron.de) for figuring out this temporary solution and letting me know!
 
 CLI
 ---
