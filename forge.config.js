@@ -5,7 +5,8 @@ module.exports = {
     forge: {
       make_targets: {
         win32: [
-          "squirrel"
+          //"squirrel"
+          "zip"
         ],
         darwin: [
           "zip"
@@ -17,21 +18,26 @@ module.exports = {
       },
       electronPackagerConfig: {
         "icon": path.resolve(__dirname, '/res/Icon.icns'),
-        "packageManager": "npm",
+        "icon": "./res/Icon.icns",
+        "packageManager": false,
         "asar": true
       },
+      /*
       electronWinstallerConfig: {
-        "name": "amigapal"
-      },
+        "name": "AmigaPal",
+        "authors": "Brendan Ratliff",
+        "description": "Amiga 8svx sample converter",
+        "exe": "AmigaPal.exe"
+      },*/
       electronInstallerDebian: {},
       electronInstallerRedhat: {},
       github_repository: {
-        owner: "",
-        name: ""
+        owner: "Echolevel",
+        name: "AmigaPal"
       },
       windowsStoreConfig: {
-        packageName: "",
-        name: "amigapal"
+        packageName: "amigapal",
+        name: "AmigaPal"
       }
     }
 }

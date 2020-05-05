@@ -26,16 +26,18 @@ function createWindow() {
 
   win = new BrowserWindow({
     width: 600,
-    height: 830,
+    height: 846,
     minWidth: 600,
     maxWidth: 600,
     minHeight: 830,
-    maxHeight: 830,
+    //maxHeight: 830,
+    frame: false,
     titleBarStyle: 'hidden',
     icon: path.resolve(__dirname, 'res/Icon.icns'),
     webPreferences: {
       webSecurity: false,
-      allowRunningInsecureContent: true
+      allowRunningInsecureContent: true,
+      nodeIntegration: true
     }
     //,minHeight: 500
     //,maxWidth: 940
@@ -50,17 +52,22 @@ function createWindow() {
   }));
 
 
-  /*
+
   globalShortcut.register('f5', function() {
 		win.reload()
 	})
 	globalShortcut.register('CommandOrControl+R', function() {
 		win.reload()
 	})
+
   globalShortcut.register('f12', function() {
     win.webContents.openDevTools({mode: 'bottom'});
   })
-  */
+
+  globalShortcut.register('CommandOrControl+Shift+I', function() {
+    win.webContents.openDevTools({mode: 'bottom'});
+  })
+
 
   //win.webContents.openDevTools({mode: 'bottom'});
 

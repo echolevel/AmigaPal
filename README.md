@@ -39,16 +39,27 @@ Features:
 * UI overhaul. Oldschool Amiga font (MicroKnight) added, because I like it. Top options now stay fixed while sample list scrolls, and some colours have been tweaked to sit better with the logo. App's top bar is skinned (on MacOS, at least - not sure how it'll look on Windows until I get a chance to test it). Top bar/title area is draggable so the window can be moved around.
 
 
+Changelog:
+----------
+5th May 2020 -
+* Finally got an Electron dev environment up and running on Windows 10
+* Updated some dependencies and did a bit of browser security futureproofing (there is basically no security, by the way - you use AmigaPal at your own risk, running locally and with local media files, but in order to achieve this it's got all the safeties turned off)
+* I've hopefully made AmigaPal platform agnostic, at last. As usual I haven't been able/willing to test on Linux, but slash direction when parsing/rewriting paths and some other quirks have been accounted for.
+* Minor UI tweaks, including the ability to adjust AmigaPal's height. (Width is still locked, otherwise things go crazy.)
+
 
 Known Bugs / To Do:
 ----------
 
-* I might reinstate the old 'output directory' option, because selecting ~50 8svx files from amongst ~50 wav files in order to transfer them to Amiga can be a bit of a pain...
 
 * It would be nice to be able to layer/mix samples in AmigaPal. You can do it in ProTracker, of course, but mixing at higher sample rates/bit depths might give better results in the end. We'd need to be able to select multiple samples, and also decide on an output filename template. Low priority for now!
 
 * I wish I could get the app Icon working properly. There IS one, I just can't get Electron-Forge
 to add it when packaging.
+
+* Override tickbox for Output Directory, where 8svx files are placed in the same directory as the source
+
+* Truncate filenames option (sometimes AmigaDos will flip out if the path's too long) - maybe use the first 7 characters plus a numerical prefix in case of dupes?
 
 Installation
 ------------

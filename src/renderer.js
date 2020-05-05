@@ -16,6 +16,28 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   };
 }]).controller('MainCtrl', function ($scope, $timeout) {
 
+  const os = require('os');
+  const platforms = {
+    WINDOWS: 'Windows',
+    MAC: 'MacOS',
+    LINUX: 'Linux'
+  }
+  const platformNames = {
+    win32: platforms.WINDOWS,
+    darwin: platforms.MAC,
+    linux: platforms.LINUX
+  }
+  const currentPlatform = platformNames[os.platform()];
+
+  var pathslash = '/'
+  if(currentPlatform === 'Windows') {
+    pathslash = "\\"
+  }
+
+  console.log("Current platform: " + currentPlatform + ", pathslash: " + pathslash);
+
+
+
   var pathpath = require('path');
   var dataurl = require('dataurl');
   var exec = require('child_process').exec;
@@ -23,6 +45,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   var remote = require('electron').remote;
   var dialog = remote.require('electron').dialog;
+  var windie = remote.getCurrentWindow();
   var mainProcess = remote.require(__dirname + '/main.js');
   var bitcrusher = require('bitcrusher');
   var intervals = []; // zap this to tidy up orphaned playhead-progress intervals
@@ -31,6 +54,35 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   $scope.statusmsg = "All is well";
   $scope.selectedItem = 0;
   $scope.loading = false;
+
+
+  document.onreadystatechange = (event) => {
+    if(document.readyState == 'complete') {
+      handleWindowControls();
+    }
+  }
+
+  windie.onbeforeunload = (event) => {
+    /* If window is reloaded, remove win event listeners
+    (DOM element listeners get auto garbage collected but not
+    Electron win listeners as the win is not dereferenced unless closed) */
+    windie.removeAllListeners();
+  }
+
+  function handleWindowControls() {
+    // Make minimise/maximise/restore/close buttons work when they are clicked
+    document.getElementById('min-button').addEventListener("click", event => {
+        windie.minimize();
+    });
+
+
+    document.getElementById('close-button').addEventListener("click", event => {
+        windie.close();
+    });
+
+}
+
+
 
   Number.prototype.map = function (in_min, in_max, out_min, out_max) {
     return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
@@ -62,9 +114,9 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   function soxCheck() {
     // Is sox installed? Reachable?
-    if(process.platform !== 'win32' && $scope.options.soxpath && $scope.options.soxpath.substr(-1) != '/') {
+    if(process.platform !== 'win32' && $scope.options.soxpath && $scope.options.soxpath.substr(-1) != pathslash) {
       // Force a trailing slash for MacOS and Linux
-      $scope.options.soxpath += '/';
+      $scope.options.soxpath += pathslash;
     }
     exec($scope.options.soxpath + 'sox', function(error, stdout, stderr) {
       var errortext = error + '';
@@ -182,7 +234,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
             // do stuff with path
             var fileExt = path.substring(path.lastIndexOf('.')+1, path.length);
             if($scope.filetypes.indexOf(fileExt.toUpperCase()) > -1) {
-              var promise = prepItem(files[0].path + '/' + path);
+              var promise = prepItem(files[0].path + pathslash + path);
               promise.then(function(tmpfile) {
                 createItem(tmpfile);
               })
@@ -192,13 +244,13 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
             /*
             if ($scope.options.filterext.length > 0 || $scope.options.filterext != '*') {
               if (path.indexOf($scope.options.filterext) > -1 || path.indexOf($scope.options.filterext.toUpperCase()) > -1 || path.indexOf($scope.options.filterext.toLowerCase()) > -1) {
-                var promise = prepItem(files[0].path + '/' + path);
+                var promise = prepItem(files[0].path + pathslash + path);
                 promise.then(function(tmpfile) {
                   createItem(tmpfile);
                 })
               }
             } else {
-              var promise = prepItem(files[0].path + '/' + path);
+              var promise = prepItem(files[0].path + pathslash + path);
               promise.then(function(tmpfile) {
                 createItem(tmpfile);
               })
@@ -229,8 +281,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   function prepItem(path) {
     return new Promise(function(resolve, reject) {
       var inpath = path;
-      var indir = inpath.substring(0, inpath.lastIndexOf('/') + 1);
-      var infile = inpath.substring(inpath.lastIndexOf('/') + 1, inpath.length);
+      var indir = inpath.substring(0, inpath.lastIndexOf(pathslash) + 1);
+      var infile = inpath.substring(inpath.lastIndexOf(pathslash) + 1, inpath.length);
       var outdir = indir;
       var outfile = infile.substring(0, infile.lastIndexOf('.')) + '.8svx';
 
@@ -566,7 +618,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     var outfile;
     if($scope.options.outputDir && $scope.options.outputDir.length > 0) {
       var fpath = $scope.files[idx].targetpath;
-      outfile = $scope.options.outputDir + fpath.substr(fpath.lastIndexOf('/'), fpath.length)
+      outfile = $scope.options.outputDir + fpath.substr(fpath.lastIndexOf(pathslash), fpath.length)
     } else {
       outfile = $scope.files[idx].targetpath;
     }
