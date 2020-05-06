@@ -41,7 +41,16 @@ Features:
 
 Changelog:
 ----------
-5th May 2020 -
+**6th May 2020 -**
+* Whoops, the fontawesome icons have been broken for months - fixed
+* Now there's a 'Load...' button for loading single or multiple files via your operating system's file dialogue, and it caches the enclosing directory of the most recently loaded file for future use. If that directory becomes unavailable, it'll fall back to AmigaPal's root directory.
+* There's now a confirmation popup on 'Clear All' in case you didn't, in fact, want to clear all.
+* And one on 'Apply to all', because that's also a good way to ruin lots of hard work.
+* 'Truncate Filenames' option: this strips out special characters and spaces, trims the output filename to a limit, and prefixes with a numerical ID that's just the file's position in the AmigaPal file list (to keep files unique if the truncation removes their original numbering system). Filenames under the Amiga filesystem are usually limited to 31 characters, though some trackers might struggle with even much shorter filenames - not to mention enormous full path lengths from nested long drawer names. I've decided to default to 3 (prefix) + 8 (name) + 5 (extension) = 16. Let me know if that's too restrictive or doesn't solve your problem. I also capitalise them because, I dunno, I think it looks cool. But it's also sometimes good for visually distinguishing converted files if your target dir is the same as the source dir.
+* Output directory can be opened in Explorer/Finder/etc, for added convenience.
+* Fixed a bug where the pause button wouldn't switch back to a play button after a sample's playback had ended.
+
+**5th May 2020 -**
 * Finally got an Electron dev environment up and running on Windows 10
 * Updated some dependencies and did a bit of browser security futureproofing (there is basically no security, by the way - you use AmigaPal at your own risk, running locally and with local media files, but in order to achieve this it's got all the safeties turned off)
 * I've hopefully made AmigaPal platform agnostic, at last. As usual I haven't been able/willing to test on Linux, but slash direction when parsing/rewriting paths and some other quirks have been accounted for.
@@ -51,15 +60,15 @@ Changelog:
 Known Bugs / To Do:
 ----------
 
-
 * It would be nice to be able to layer/mix samples in AmigaPal. You can do it in ProTracker, of course, but mixing at higher sample rates/bit depths might give better results in the end. We'd need to be able to select multiple samples, and also decide on an output filename template. Low priority for now!
 
 * I wish I could get the app Icon working properly. There IS one, I just can't get Electron-Forge
 to add it when packaging.
 
-* Override tickbox for Output Directory, where 8svx files are placed in the same directory as the source
+Would like to have, but probably won't happen:
+-----------------------------------------------
 
-* Truncate filenames option (sometimes AmigaDos will flip out if the path's too long) - maybe use the first 7 characters plus a numerical prefix in case of dupes?
+* Previewing target pitch or Protracker note in the app - this should be mega easy, because playing back a sample at arbitrary rates in order to speed it up or slow it down while commensurately changing its pitch is as old as...well, the Amiga. And the Fairlight. And older than that. But Chrome's WebAudio implementation actively ignores this time-honoured use case when playing media elements (which is what AmigaPal uses so that it can do other fancy things without incurring a massive performance hit). So this will probably never happen, which is a shame, but that's the reason.
 
 Installation
 ------------

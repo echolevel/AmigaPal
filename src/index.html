@@ -6,7 +6,7 @@
 
     <link href="../bower_components/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
     <!--<link rel="stylesheet" href="../bower_components/font-awesome/css/font-awesome.min.css">-->
-    <script type="text/javascript" src="/Users/echolevel/Sites/amiga/amigapal/node_modules/@fortawesome/fontawesome-free/js/all.js"></script>
+    <script type="text/javascript" src="../node_modules/@fortawesome/fontawesome-free/js/all.js"></script>
     <link rel="stylesheet" href="../bower_components/angularjs-slider/dist/rzslider.css">
     <link rel="stylesheet" href="../bower_components/angular-bootstrap/ui-bootstrap-csp.css"></script>
     <!--<link href="css/style.css" rel="stylesheet">-->
@@ -196,7 +196,7 @@
 
       .dropzone {
         width: 560px;
-        height: 535px;
+        height: 504px;
         padding-bottom: 0 !important;
         margin-left: 20px !important;
         margin-right: 20px !important;
@@ -520,25 +520,11 @@
 
            </div>
 
+
             <div class="form-group row">
 
 
-              <div class="col-5  input-group input-group-sm">
-                <select class="input-group-addon custom-select" ng-model="options.mixdown" style="min-width: 100%" ng-options="value as key for (key, value) in mixdownTypes" ng-change="setMixdown()">
-                </select>
-              </div>
-
-              <label class="col-7 col-form-label">Mono mixdown</label>
-
-              <!-- don't know why this exists
-              <label class="col-7 offset-md-5 col-form-label">
-                Disable with 'Mono'
-              </label>-->
-            </div>
-
-
-            <div class="form-group row" style="margin-top: -20px; margin-bottom: 0px">
-              <div class="col-5 text-right">
+              <div class="col-1 text-left">
                 <div class="form-check">
                   <label class="form-check-label" style="margin-top: 6px;">
                     <input class="form-check-input" type="checkbox" ng-model="options.lowpass_enabled">
@@ -546,11 +532,22 @@
                 </div>
               </div>
 
-              <label class="col-7 col-form-label" style="padding-top: 10px;">8k lowpass (post)</label>
+              <label class="col-4 col-form-label" style="padding-top: 6px;">8k lowpass</label>
+
+              <div class="col-3  input-group input-group-sm">
+                <select class="input-group-addon custom-select" ng-model="options.mixdown" style="min-width: 100%" ng-options="value as key for (key, value) in mixdownTypes" ng-change="setMixdown()">
+                </select>
+              </div>
+
+              <label class="col-3 col-form-label">Mono mix</label>
+
+
 
             </div>
 
+
           <div class="form-group row">
+
             <div class="col-5">
               <button type="button" class="btn btn-sm btn-secondary"  ng-click="applyToAll();" style="line-height: 20px">
                 Apply to all
@@ -559,14 +556,31 @@
 
           </div>
 
-            <div class="form-group row" style="margin-top: 14px">
 
-              <div class="col-7 input-group input-group-sm">
-                <input class="form-control" type="text" placeholder="e.g. /Users/yourname/samples" ng-model="options.outputDir">
-                <btn class="input-group-addon dirselect-addon" ng-click="chooseOutputDir()">...</btn>
-                <input id="outputDirChooser" type="file" style="display: none" webkitdirectory/>
+
+            <div class="form-group row" style="margin-top: 8px">
+              <div class="col-12 input-group input-group-sm" style="margin-left: 2px; padding-bottom: 4px;">
+                Out: {{options.outputToSource === true ? '[Same as source]' : (options.outputDir[0] | limitTo: 32) }}
+                {{options.outputToSource === true ? '' : '[...]'}}
               </div>
-              <label class="col-5 col-form-label">Output</label>
+
+              <div class="col-2 text-left">
+                <div class="form-check">
+                  <label class="form-check-label" style="margin-top: 6px;">
+                    <input class="form-check-input" type="checkbox" ng-model="options.outputToSource">
+                  </label>
+                </div>
+              </div>
+
+              <label class="col-10 col-form-label" style="padding-top: 6px;">Output dir same as source</label>
+
+              <div class="col-12 input-group input-group-sm">
+
+                <button style="line-height: 20px" class="btn btn-sm btn-secondary btn-inline" ng-click="chooseOutputDir()" ng-disabled="options.outputToSource">Set Output Dir</button> &nbsp;
+                <input id="outputDirChooser" type="file" style="display: none" webkitdirectory/>
+                <button style="line-height: 20px" class="btn btn-sm btn-secondary btn-inline" ng-click="openOutputDir()" ng-disabled="options.outputToSource">View In {{currentPlatform === 'Windows' ? 'Explorer' : 'Finder'}}</button>
+              </div>
+
             </div>
 
 
@@ -632,6 +646,20 @@
 
           </div>
 
+          <div class="form-group row" style="margin-top: -10px; margin-bottom: 0px">
+
+            <div class="col-4 text-left">
+              <div class="form-check">
+                <label class="form-check-label" style="margin-top: 6px;">
+                  <input class="form-check-input" type="checkbox" ng-model="options.truncateFilenames">
+                </label>
+              </div>
+            </div>
+
+            <label class="col-8 text-left col-form-label" style="padding-top: 8px;">Truncate filenames</label>
+
+        </div>
+
 
 
 
@@ -645,13 +673,18 @@
                 <strong>STATUS: <span style="color: #7cca8f;">{{statusmsg}}</span></strong>
               </div>
 
+                  <button type="button" style="line-height: 20px" class="btn btn-sm btn-secondary btn-inline" ng-click="chooseInputFiles()">
+                    <i class="fas fa-trash-alt" ></i> <span style="padding-top: 7px !important;">Load...</span>
+                  </button>
+                  <input id="inputFilesChooser" type="file" style="display: none" />
 
-                  <button type="button" style="line-height: 20px" class="btn btn-sm btn-secondary btn-block" ng-click="clearAll();">
+                  <button type="button" style="line-height: 20px" class="btn btn-sm btn-secondary btn-inline" ng-click="clearAll();">
                     <i class="fas fa-trash-alt" ></i> <span style="padding-top: 7px !important;">Clear all</span>
                 </button>
 
 
-                  <button type="button" style="line-height: 20px"  class="btn btn-sm btn-secondary btn-block" ng-click="convertAll();">
+
+                  <button type="button" style="margin-top: 4px; line-height: 20px"  class="btn btn-sm btn-secondary btn-block" ng-click="convertAll();">
                     <i class="fas fa-random" ></i> Convert {{files.length}}
                 </button>
 
@@ -674,7 +707,10 @@
         <div class="dropzone" ng-if="files.length <= 0">
           <div class="droptext">
 
-            DROP FILES OR FOLDERS HERE
+            DROP FILES OR FOLDERS HERE <br/>
+
+
+
             <br/>
             <!--<i class="fas fa-file-audio dropicon"></i>-->
             <!--<i class="fas fa-folder dropicon"></i>-->

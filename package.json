@@ -8,7 +8,7 @@
     "make": "electron-forge make"
   },
   "devDependencies": {
-    "@fortawesome/fontawesome-free": "^5.8.1",
+
     "babel-plugin-transform-async-to-generator": "^6.24.1",
     "babel-preset-env": "^1.7.0",
     "babel-preset-react": "^6.24.1",
@@ -16,6 +16,7 @@
     "electron-prebuilt-compile": "4.0.0"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^5.8.1",
     "@electron-forge/plugin-webpack": "^6.0.0-beta.34",
     "bitcrusher": "^0.3.0",
     "dataurl": "^0.1.0",

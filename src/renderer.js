@@ -27,14 +27,14 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     darwin: platforms.MAC,
     linux: platforms.LINUX
   }
-  const currentPlatform = platformNames[os.platform()];
+  $scope.currentPlatform = platformNames[os.platform()];
 
   var pathslash = '/'
-  if(currentPlatform === 'Windows') {
+  if($scope.currentPlatform === 'Windows') {
     pathslash = "\\"
   }
 
-  console.log("Current platform: " + currentPlatform + ", pathslash: " + pathslash);
+  console.log("Current platform: " + $scope.currentPlatform + ", pathslash: " + pathslash);
 
 
 
@@ -44,6 +44,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   var fs = require('fs');
 
   var remote = require('electron').remote;
+  const { shell } = require('electron');
   var dialog = remote.require('electron').dialog;
   var windie = remote.getCurrentWindow();
   var mainProcess = remote.require(__dirname + '/main.js');
@@ -54,6 +55,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   $scope.statusmsg = "All is well";
   $scope.selectedItem = 0;
   $scope.loading = false;
+  $scope.itemCount = 0;
 
 
   document.onreadystatechange = (event) => {
@@ -152,10 +154,13 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       //lowpasscutoff: 10000,
       //highpasscutoff: 1,
       preview8bit: false,
+      truncateFilenames: true,
+      truncateLimit: 8,
       previewSamplerate: false,
       filesizeWarning: -1,
       draggable: true,
-      bigFileSize: true
+      bigFileSize: true,
+      outputToSource: false
     };
     localStorage.setItem('config', JSON.stringify(options));
     $scope.options = options;
@@ -278,13 +283,44 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     ev.preventDefault();
   };
 
+  function pad(num, size) {
+    var s = num+"";
+    while (s.length < size) s = "0" + s;
+    return s;
+  }
+
   function prepItem(path) {
     return new Promise(function(resolve, reject) {
       var inpath = path;
       var indir = inpath.substring(0, inpath.lastIndexOf(pathslash) + 1);
       var infile = inpath.substring(inpath.lastIndexOf(pathslash) + 1, inpath.length);
       var outdir = indir;
-      var outfile = infile.substring(0, infile.lastIndexOf('.')) + '.8svx';
+      // What's this file's unique number in the files[] list?
+      $scope.itemCount++;
+      var uniqueID = $scope.itemCount + 1;
+      var outfile = "";
+
+      if($scope.options.truncateFilenames) {
+        outfile = "" + pad(uniqueID, 2) + "_" + infile.replace("[^a-zA-Z0-9]+","").substr(0, 8) + '.8svx';
+        outfile = outfile.toUpperCase();
+      } else {
+        outfile = infile.substring(0, infile.lastIndexOf('.')) + '.8svx';
+      }
+
+      //outfile = infile.substring(0, infile.lastIndexOf('.')) + '.8svx';
+
+      console.log("prepItem is happening");
+      console.log($scope.files);
+      for (var i = 0; i < $scope.files.length; i++) {
+        console.log("test");
+        console.log("item path: " + $scope.files[i].fullpath);
+        console.log("what I think the path is: " + path);
+        if($scope.files[i].path === path) {
+          console.log("updated this file's uniqueID to " + f);
+          uniqueID = i;
+        }
+      }
+      //var outfile = infile.substring(0, infile.lastIndexOf('.')) + '.8svx';
 
       var tmpfile = {
         fullyLoaded: false,
@@ -495,6 +531,13 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
           })
 
+          $scope.files[i].player.addEventListener('ended', function() {
+            console.log("this sample's playback has ended");
+
+            document.getElementById('playericon-'+i).classList.remove('fa-pause');
+            document.getElementById('playericon-'+i).classList.add('fa-play');
+          })
+
           /*
           $scope.files[i].player.ontimeupdate = function () {
             var playhead = document.getElementById('playhead-' + i);
@@ -616,7 +659,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
     var infile = $scope.files[idx].fullpath;
     var outfile;
-    if($scope.options.outputDir && $scope.options.outputDir.length > 0) {
+    if($scope.options.outputDir && $scope.options.outputDir.length > 0 && !$scope.options.outputToSource) {
       var fpath = $scope.files[idx].targetpath;
       outfile = $scope.options.outputDir + fpath.substr(fpath.lastIndexOf(pathslash), fpath.length)
     } else {
@@ -644,7 +687,11 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       if (error) {
         console.log(error);
         console.log(stderr);
-        alert("Something went horribly wrong");
+        var suggestion = "";
+        if(stderr.toString().toLowerCase().includes('can\'t open output file')) {
+          suggestion += "\nAre you sure the output directory exists? Try creating it if you've renamed/deleted it, or set a new one."
+        }
+        alert("Something went horribly wrong: \n\n" + stderr.toString() + suggestion);
       } else {
         console.log("Done: " + $scope.files[idx].targetpath);
         $scope.files[idx].processing = false;
@@ -699,7 +746,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     //document.getElementById('outputDirChooser').click();
     // get this elsewhere with document.getElementById('outputDirChooser').files[0].path
     var path = dialog.showOpenDialog({
-      properties: ['openDirectory']
+      properties: ['openDirectory','createDirectory']
     })
     if(path.length > 0) {
       $scope.options.outputDir = path;
@@ -708,6 +755,52 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     }
 
   }
+
+  $scope.openOutputDir = function() {
+    shell.showItemInFolder($scope.options.outputDir + pathslash);
+  }
+
+  // TO DO 2020-05-06 This needs to produce an array of file paths, but we also need to take
+  // the first, strip the filename, and cache that directory path as inputDir (last-used
+  // file location)
+
+ $scope.chooseInputFiles = function() {
+   console.log("choose input files button clicked");
+
+   var paths = dialog.showOpenDialog({
+     properties: ['openFile','multiSelections','createDirectory']
+   })
+   if(paths && paths.length > 0) {
+
+     var cachepath = paths[0].substring(0, paths[0].lastIndexOf(pathslash) + 1)
+     console.log(cachepath)
+     // Save this as the last-used source directory
+     $scope.options.inputDir = cachepath;
+
+     // Process file[s]
+     for (var i = 0; i < paths.length; i++) {
+
+       var fileExt = paths[i].substring(paths[i].lastIndexOf('.')+1, paths[i].length);
+       console.log(paths[i]);
+       if($scope.filetypes.indexOf(fileExt.toUpperCase()) > -1) {
+         var promise = prepItem(paths[i]);
+         promise.then(function(tmpfile) {
+           console.log("Promise returned, did a thing");
+           console.log(tmpfile);
+           createItem(tmpfile);
+         })
+       } else {
+         console.log("Nope, not loading ", fileExt);
+       }
+
+     }
+
+
+
+   } else {
+     $scope.options.inputDir = "";
+   }
+ }
 
 
   $scope.updateInfo = function(idx) {
@@ -738,13 +831,16 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
 
   $scope.applyToAll = function() {
-    for (var i in $scope.files) {
-      $scope.files[i].samplerate = $scope.options.samplerate;
-      $scope.files[i].mixdown = $scope.options.mixdown;
-      $scope.files[i].postLP_enabled = $scope.options.lowpass_enabled;
-      //$scope.updateItemEffects(i);
+    if(confirm("Are you sure you want to apply these settings to every sample in the list?")) {
+        for (var i in $scope.files) {
+          $scope.files[i].samplerate = $scope.options.samplerate;
+          $scope.files[i].mixdown = $scope.options.mixdown;
+          $scope.files[i].postLP_enabled = $scope.options.lowpass_enabled;
+          //$scope.updateItemEffects(i);
+        }
+        $scope.updateGlobalEffects();
     }
-    $scope.updateGlobalEffects();
+
   }
 
   $scope.convertAll = function () {
@@ -770,20 +866,29 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     $scope.files[i].player.removeEventListener('timeupdate', function(){
       console.log("eventlistener removed");
     });
+    $scope.files[i].player.removeEventListener('ended', function(){
+      console.log("eventlistener removed");
+    });
     $scope.files.splice(i, 1);
     intervals.forEach(clearInterval);
   }
 
   $scope.clearAll = function() {
-    for (var i = 0; i < $scope.files.length; i++) {
-      $scope.files[i].player.pause();
-      $scope.files[i].player.removeEventListener('timeupdate', function(){
-        console.log("eventlistener removed");
-      });
-      $scope.files[i].spectrum.disconnect(bitcrushNode);
+    if(confirm("Are you sure you want to clear all samples from the list?")) {
+      for (var i = 0; i < $scope.files.length; i++) {
+        $scope.files[i].player.pause();
+        $scope.files[i].player.removeEventListener('timeupdate', function(){
+          console.log("eventlistener removed");
+        });
+        $scope.files[i].player.removeEventListener('ended', function(){
+          console.log("eventlistener removed");
+        });
+        $scope.files[i].spectrum.disconnect(bitcrushNode);
+      }
+      $scope.files = [];
+      intervals.forEach(clearInterval);
     }
-    $scope.files = [];
-    intervals.forEach(clearInterval);
+
   }
 
   $scope.$watch('options', function () {
@@ -808,6 +913,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     }
 
   }
+
 
   var toLin = function(value, width) {
     var minp = 0;

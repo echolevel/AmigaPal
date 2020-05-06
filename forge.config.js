@@ -17,8 +17,12 @@ module.exports = {
         ]
       },
       electronPackagerConfig: {
-        "icon": path.resolve(__dirname, '/res/Icon.icns'),
-        "icon": "./res/Icon.icns",
+        "icon": path.resolve(__dirname, 'src/res/icon.ico'),
+        "packageManager": false,
+        "asar": true
+      },
+      packagerConfig: {
+        "icon": path.resolve(__dirname, 'src/res/icon.ico'),
         "packageManager": false,
         "asar": true
       },
