@@ -34,23 +34,24 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     pathslash = "\\"
   }
 
+
   console.log("Current platform: " + $scope.currentPlatform + ", pathslash: " + pathslash);
 
 
 
   var pathpath = require('path');
-  var dataurl = require('dataurl');
-  var exec = require('child_process').exec;
   var fs = require('fs');
+  var fspromises = require('fs').promises;
 
   var remote = require('electron').remote;
+  const {getCurrentWindow } = require('electron').remote;
   const { shell } = require('electron');
-  var dialog = remote.require('electron').dialog;
+  //var dialog = remote.require('electron').dialog;
+  const {dialog} = require('electron').remote
   var windie = remote.getCurrentWindow();
   var mainProcess = remote.require(__dirname + '/main.js');
-  var bitcrusher = require('bitcrusher');
-  var intervals = []; // zap this to tidy up orphaned playhead-progress intervals
-  var displayCanvasWidth = 325;
+
+  var displayCanvasWidth = 420;
   $scope.writingWav = false;
   $scope.statusmsg = "All is well";
   $scope.selectedItem = 0;
@@ -85,10 +86,16 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 }
 
 
-
+  Number.prototype.clamp = function(min, max) {
+    return Math.min(Math.max(this,min),max);
+  }
   Number.prototype.map = function (in_min, in_max, out_min, out_max) {
-    return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+    let out = (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+    return out.clamp(out_min, out_max);
   };
+
+
+  let playbackDetuneValue = 0;
 
   $scope.ptnotes = {
     "C-1": 4143, "C#1": 4389, "D-1": 4654, "D#1": 4926, "E-1": 5231, "F-1": 5542, "F#1": 5872, "G-1": 6222, "G#1": 6592, "A-1": 6982, "A#1": 7389, "B-1": 7829,
@@ -96,11 +103,12 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     "C-3": 16574, "C#3": 17558, "D-3": 18667, "D#3": 19704, "E-3": 20864, "F-3": 22168, "F#3": 23489, "G-3": 24803, "G#3": 26273, "A-3": 27928, "A#3": 29557, "B-3": 31388
   }
 
-  $scope.mixdownTypes = {
-    "L + R": '-',
-    "Left"  : '1',
-    "Right"  : '2'
-  }
+  $scope.keyboardNotes = [
+    'C-1','C#1','D-1','D#1','E-1','F-1','F#1','G-1','G#1','A-1','A#1','B-1',
+    'C-2','C#2','D-2','D#2','E-2','F-2','F#2','G-2','G#2','A-2','A#2','B-2',
+    'C-3','C#3','D-3','D#3','E-3','F-3','F#3','G-3','G#3','A-3','A#3','B-3',
+  ]
+
 
   $scope.fileSizes = {
     "off": -1,
@@ -113,108 +121,147 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   $scope.working = false;
 
-
-  function soxCheck() {
-    // Is sox installed? Reachable?
-    if(process.platform !== 'win32' && $scope.options.soxpath && $scope.options.soxpath.substr(-1) != pathslash) {
-      // Force a trailing slash for MacOS and Linux
-      $scope.options.soxpath += pathslash;
-    }
-    exec($scope.options.soxpath + 'sox', function(error, stdout, stderr) {
-      var errortext = error + '';
-      if (errortext.indexOf('FAIL sox') > -1) {
-        $scope.foundsox = true;
-        console.log("Found sox at " + $scope.options.soxpath);
-      } else {
-        console.log(errortext);
-        console.log("Couldn't find sox/soxi. Did you set the SoX path?");
-        alert("Couldn't find sox/soxi on your system. Did you set the SoX path? Please check it and restart.");
-      }
-    })
-  }
-
   if (!localStorage.getItem('config')) {
     console.log("No local storage found");
     var options = {
-      normalise: true,
-      dither: false,
       samplerate: 27928,
+      ptnote: 'A-3', //use indexOf on keyboardNotes to get numerical value
       mixdown: '-',
-      transpose: 0,
-      filterext: "",
       bitdepth: 8,
       defaultdir: '',
-      //fname_append: "_ami",
-      fname_append: "", // disabled for now
-      append_type: "suffix",
-      mono_enabled: true,
       lowpass_enabled: false,
       playbackvolume: 50,
-      soxpath: '/usr/local/bin/',
+      outputGain: 0, // I'm calling this "-3dBFS", but who knows really. Basically this is for normalising below maximum 8bit amplitude in case there's clipping
       //lowpasscutoff: 10000,
       //highpasscutoff: 1,
       preview8bit: false,
       truncateFilenames: true,
+      saveWav: false,
       truncateLimit: 8,
       previewSamplerate: false,
       filesizeWarning: -1,
       draggable: true,
       bigFileSize: true,
-      outputToSource: false
+      outputToSource: false,
+      looping: false,
+      modTitle: 'AMIGAPAL_MOD',
+      outputDir: ''
     };
     localStorage.setItem('config', JSON.stringify(options));
     $scope.options = options;
   } else {
     // Get the saved options
     $scope.options = JSON.parse(localStorage.getItem('config'));
-    // Check to see if SoX is available (kinda important):
-    soxCheck();
   }
 
 
   // Preview chain setup
 
-  var audioContext = new AudioContext();
-  var scriptNode = audioContext.createScriptProcessor(4096, 1, 1);
+  var audioContext = new AudioContext({
+    latencyHint: 'interactive' // This is default anyway
+  });
+  var source = audioContext.createBufferSource();
+  var nowPlaying = false;
+  var nowPlayingItem = -1;
+  var globalPlaybackRate = 1;
+
+  // The previewInputNode is connected to elsewhere, after a file has been loaded, to
+  // hook up the file's buffer to the preview audio graph. It's just a gain that's
+  // permanently set to level=1. It should never be changed.
+  var previewInputNode = audioContext.createGain();
+  previewInputNode.gain.setValueAtTime(1, audioContext.currentTime);
+
+
+  // Initial filter setup
+  let filterLo = audioContext.createBiquadFilter();
+  let filterHi = audioContext.createBiquadFilter();
+  filterLo.type = "lowpass";
+  filterHi.type = "highpass";
+  filterLo.frequency.setValueAtTime(20000, audioContext.currentTime);
+  filterHi.frequency.setValueAtTime(40, audioContext.currentTime);
+  filterHi.Q.setValueAtTime(0, audioContext.currentTime);
+  filterLo.Q.setValueAtTime(0, audioContext.currentTime);
+
+  let splitter = audioContext.createChannelSplitter(2);
+  let outputmerger = audioContext.createChannelMerger(1);
 
   var volumeGain = audioContext.createGain();
-  var bitcrushNode = bitcrusher(audioContext, {
-    bitDepth: 16,
-    frequency: 1
-  })
 
-  bitcrushNode.connect(volumeGain);
+  // Adapted from the very nice bitcrusher.js by jaz303 (https://github.com/jaz303/bitcrusher)
+  // because I wanted to learn how it worked and also tweak some stuff.
+  var brenCrushFreq = 1;
+  var brenCrusher = audioContext.createScriptProcessor(1024, 1, 1);
+  brenCrusher.onaudioprocess = function(evt) {
+    var inB = evt.inputBuffer;
+    var outB = evt.outputBuffer;
+    var step = 2 * Math.pow(0.5, 8);
+    var stepinverted = 1 / step;
+    var phasor = 0;
+    var last = 0;
 
+    var inData = inB.getChannelData(0);
+    var outData = outB.getChannelData(0);
+
+    for(var sample = 0; sample < outB.length; sample++) {
+      phasor += brenCrushFreq;
+      if(phasor >= 1) {
+        phasor -= 1;
+        last = step * Math.floor((inData[sample] * stepinverted) + 0.5);
+      }
+      outData[sample] = last;
+
+    }
+  }
+
+  // Test DC-based hardlimiter
+  let hardlimiter = audioContext.createDynamicsCompressor();
+  let limiterMakeup = audioContext.createGain();
+
+
+  hardlimiter.attack.value = 0.002; // hmm
+  hardlimiter.release.value = 0.06; // okay
+  hardlimiter.knee.value = 0.0; // yikes
+  hardlimiter.ratio.value = 20; // OOF
+  hardlimiter.threshold.value = -60.0; // SHIT THE BED
+
+  // Preview audio graph
+  source.connect(previewInputNode);
+
+  if($scope.options.limiter_enabled) {
+    previewInputNode.disconnect();
+    hardlimiter.disconnect();
+    previewInputNode.connect(hardlimiter);
+    hardlimiter.connect(limiterMakeup);
+  } else {
+    // Make the makeup gain available even when the limiter's off, to offer a gain boost
+    // that's still independent of playback volume (the normalisation might not always be enough,
+    // e.g. if there's a rogue spike that's triggering the peak limit.)
+    hardlimiter.disconnect();
+    previewInputNode.disconnect()
+    previewInputNode.connect(limiterMakeup);
+  }
+
+  limiterMakeup.connect(filterLo);
+
+  filterLo.connect(filterHi);
+  filterHi.connect(outputmerger);
+  filterHi.connect(brenCrusher);
+  brenCrusher.connect(volumeGain);
 
   volumeGain.gain.setValueAtTime($scope.options.playbackvolume/100, audioContext.currentTime);
   volumeGain.connect(audioContext.destination);
 
   // Preview chain END
 
+  var inputOctave = 1; // lower octave: 0, upper octave: 1
 
   $scope.saveOptions = function () {
     localStorage.setItem('config', JSON.stringify($scope.options));
   };
 
-  var soxiopts = ['-t', '-r', '-c', '-D', '-b', '-e'];
-  // soxi options:
-  // -t (detected filetype), -r (samplerate), -c (channel count), -D (duration), -b (bit depth), -e (encoding)
-
   $scope.files = [];
+  $scope.decodedFiles = [];
 
-
-
-  function soxInfo(input, opt, callback) {
-    exec($scope.options.soxpath + 'sox --i ' + opt + ' "' + input + '"', function (error, stdout, stderr) {
-      callback(error, stdout.replace(/\r?\n|\r/g, ''), stderr);
-    });
-  }
-
-  function soxProcess(input, opt, output, effects, callback) {
-    exec($scope.options.soxpath + 'sox "' + input + '" ' + opt + ' "' + output + '" ' + effects, function (error, stdout, stderr) {
-      callback(error, stdout, stderr);
-    });
-  }
 
 
   document.ondragover = document.ondrop = function (ev) {
@@ -222,11 +269,13 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   };
 
   document.body.ondrop = function (ev) {
+    $scope.loading = true;
+    $scope.$apply();
     var files = ev.dataTransfer.files;
 
     // show loader. Loading status cheked at end of each waveform draw...seems cheaper
     // than an AJS watch?
-    $scope.loading = true;
+    //$scope.loading = true;
 
     // Is it a file or a directory?
     for (var i = 0, f; f = files[i]; i++) {
@@ -241,30 +290,15 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
             if($scope.filetypes.indexOf(fileExt.toUpperCase()) > -1) {
               var promise = prepItem(files[0].path + pathslash + path);
               promise.then(function(tmpfile) {
-                createItem(tmpfile);
+                createDecodedItem(tmpfile);
               })
             } else {
               console.log("Nope, not loading ", fileExt);
             }
-            /*
-            if ($scope.options.filterext.length > 0 || $scope.options.filterext != '*') {
-              if (path.indexOf($scope.options.filterext) > -1 || path.indexOf($scope.options.filterext.toUpperCase()) > -1 || path.indexOf($scope.options.filterext.toLowerCase()) > -1) {
-                var promise = prepItem(files[0].path + pathslash + path);
-                promise.then(function(tmpfile) {
-                  createItem(tmpfile);
-                })
-              }
-            } else {
-              var promise = prepItem(files[0].path + pathslash + path);
-              promise.then(function(tmpfile) {
-                createItem(tmpfile);
-              })
-            }*/
           }
         });
       } else {
         //It's a single file.
-        //createItem(f.path);
         var fileExt = f.path.substring(f.path.lastIndexOf('.')+1, f.path.length);
         console.log(f.path);
         if($scope.filetypes.indexOf(fileExt.toUpperCase()) > -1) {
@@ -272,7 +306,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           promise.then(function(tmpfile) {
             console.log("Promise returned, did a thing");
             console.log(tmpfile);
-            createItem(tmpfile);
+            createDecodedItem(tmpfile);
           })
         } else {
           console.log("Nope, not loading ", fileExt);
@@ -298,14 +332,10 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       // What's this file's unique number in the files[] list?
       $scope.itemCount++;
       var uniqueID = $scope.itemCount + 1;
-      var outfile = "";
+      var outfile = infile.substring(0, infile.lastIndexOf('.')) + '.8svx';
+      var outfile_trunc = "" + pad(uniqueID, 2) + "_" + infile.replace("[^a-zA-Z0-9]+","").substr(0, 8) + '.8svx';
+      outfile_trunc = outfile_trunc.toUpperCase();
 
-      if($scope.options.truncateFilenames) {
-        outfile = "" + pad(uniqueID, 2) + "_" + infile.replace("[^a-zA-Z0-9]+","").substr(0, 8) + '.8svx';
-        outfile = outfile.toUpperCase();
-      } else {
-        outfile = infile.substring(0, infile.lastIndexOf('.')) + '.8svx';
-      }
 
       //outfile = infile.substring(0, infile.lastIndexOf('.')) + '.8svx';
 
@@ -325,10 +355,15 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       var tmpfile = {
         fullyLoaded: false,
         fullpath: inpath,
+        inputDir: indir,
         targetpath: outdir + outfile,
+        targetpath_trunc: outdir + outfile_trunc,
         filename: infile,
         targetfilename: outfile,
+        targetfilename_trunc: outfile_trunc,
         name: outfile,
+        name_trunc: outfile_trunc,
+        samplename: outfile_trunc.substring(0, outfile_trunc.length-5),
         processing: false,
         buttontext: "Convert",
         trimstart: 0,
@@ -339,6 +374,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
         outputduration: 0,
         lowpassfrequency: 20000,
         highpassfrequency: 40,
+        limiterThresh: 0,
+        limiterMakeup: 100,
         warningmessage: "",
         trimoptions: {
           floor: 0,
@@ -361,217 +398,277 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
         }
       };
 
-      soxInfo(inpath, '-t', function (error, stdout, stderr) {
-        if (!error) {
-          tmpfile.info.filetype = stdout;
-        }
-      });
-      soxInfo(inpath, '-r', function (error, stdout, stderr) {
-        if (!error) {
-          tmpfile.info.samplerate = stdout;
-        }
-      });
-      soxInfo(inpath, '-c', function (error, stdout, stderr) {
-        if (!error) {
-          tmpfile.info.channelcount = stdout;
-        }
-      });
-      soxInfo(inpath, '-b', function (error, stdout, stderr) {
-        if (!error) {
-          tmpfile.info.bitdepth = stdout;
-        }
-      });
-      soxInfo(inpath, '-e', function (error, stdout, stderr) {
-        if (!error) {
-          tmpfile.info.encoding = stdout;
-        }
-      });
-      $timeout(function () {
-        soxInfo(inpath, '-D', function (error, stdout, stderr) {
-          if (!error) {
-            tmpfile.info.duration = Math.round(stdout * 100) / 100;
-            tmpfile.trimrange = tmpfile.info.duration;
-            tmpfile.trimend = tmpfile.info.duration;
-            tmpfile.trimoptions.ceil = tmpfile.info.duration;
-            tmpfile.originalsize = tmpfile.info.bitdepth * tmpfile.info.samplerate * tmpfile.info.channelcount * tmpfile.info.duration / 8;
-            tmpfile.outputsize = $scope.options.bitdepth * $scope.options.samplerate * tmpfile.info.duration / 8;
-
-            resolve(tmpfile);
-          }
-        });
-      }, 200);
+      resolve(tmpfile);
     })
   }
 
+  $scope.convertProms = function() {
+    $scope.loading = true;
+    var proms = [];
+    for(var p in $scope.files) {
+      proms.push($scope.processItem(p, function(msg) {
+        console.log(msg);
+      }));
+    }
+    Promise.all(proms)
+    .then(result => {
+      if(result.indexOf('error') < 0) {
+        console.log("all files converted");
+        if($scope.options.createMod && !$scope.options.saveWav) {
+          $scope.writeMod();
+        } else {
+          $scope.statusmsg = "Samples converted!";
+          $scope.loading = false;
+          $scope.$apply();
+        }
+        $timeout(function() {
+          $scope.statusmsg = "All is well";
+        }, 5000)
 
-  function createItem(tmpfile) {
+      }
+    })
+  }
 
+  function constructBufferPlayer(idx) {
+    // Called every time we need to start playback
+    destroyBufferPlayer(idx).then(() => {
+      console.log("DESTROYED!");
+
+      source = audioContext.createBufferSource();
+      source.detune.value = playbackDetuneValue;
+      source.buffer = $scope.files[idx].buffer;
+      source.playbackRate.value = globalPlaybackRate;
+
+
+
+      //$scope.files[i].preview.connect($scope.files[i].filterLo);
+      $scope.options.limiter_enabled = $scope.files[idx].limiter_enabled;
+      source.connect(previewInputNode);
+
+      outputmerger.connect($scope.files[idx].spectrum);
+
+      //$scope.files[idx].spectrum.connect(bitcrushNode);
+
+      $scope.updateGlobalEffects();
+
+      if($scope.options.previewSamplerate) {
+        brenCrushFreq = $scope.files[idx].samplerate.map(0, $scope.files[idx].buffer.sampleRate, 0, 1);
+      } else {
+        brenCrushFreq = 1;
+      }
+
+      $scope.files[idx].contextTimeAtStart = audioContext.currentTime;
+      $scope.files[idx].realtimeDuration = source.buffer.duration * (1/globalPlaybackRate);
+      //source.start(0, $scope.files[idx].trimstart.map(0,source.buffer.duration,0,$scope.files[idx].realtimeDuration)); // offset is always relative to time at the sample's natural samplerate, regardless of globalPlaybackRate
+      source.start(0, $scope.files[idx].trimstart); // offset is always relative to time at the sample's natural samplerate, regardless of globalPlaybackRate
+      source.loop = false;
+      nowPlaying = true;
+      nowPlayingItem = idx;
+
+      source.addEventListener('ended', () => {
+        //destroyBufferPlayer(idx);
+      })
+
+      $scope.files[idx].progressTimer = setInterval(() => {
+
+        var scaledTrimstart = $scope.files[idx].trimstart.map(0,source.buffer.duration,0,$scope.files[idx].realtimeDuration);
+        var scaledTrimend = $scope.files[idx].trimend.map(0, source.buffer.duration, 0, $scope.files[idx].realtimeDuration);
+        var scaledRange = scaledTrimend - scaledTrimstart;
+        var elapsed = audioContext.currentTime  - $scope.files[idx].contextTimeAtStart + scaledTrimstart;
+
+        if(elapsed >= scaledTrimend) {
+          destroyBufferPlayer(idx);
+        }
+
+        var realTimeElapsed = audioContext.currentTime - $scope.files[idx].contextTimeAtStart + ($scope.files[idx].trimstart);
+        var proportionalElapsed = realTimeElapsed.map(0, source.buffer.duration, 0, source.buffer.duration * (1/globalPlaybackRate));
+
+        var playhead = document.getElementById('playhead-' + idx);
+        var phNewpos = Math.round(elapsed.map(0, $scope.files[idx].realtimeDuration, 0, displayCanvasWidth));
+
+        playhead.style['left'] = phNewpos + 'px';
+
+      },30)
+
+    });
+
+
+
+  }
+
+
+
+  function destroyBufferPlayer(idx) {
+    return new Promise((resolve, reject) => {
+        if(nowPlaying) {
+            source.disconnect(previewInputNode);
+            source.stop();
+        }
+        nowPlaying = false;
+        nowPlayingItem = -1;
+        for(var f in $scope.files) {
+            clearInterval($scope.files[f].progressTimer);
+        }
+
+        resolve();
+    })
+
+  }
+
+
+
+
+  function createDecodedItem(tmpfile) {
       $scope.files.push(tmpfile);
       var i = $scope.files.length - 1;
       $scope.selectedItem = i;
 
       fs.readFile($scope.files[i].fullpath, (err,data) => {
         if(err) { console.log("failed")} else {
-          //$scope.files[i].srcdata = dataurl.convert({ data, mimetype: 'audio/wav'});
-          //$scope.files[i].player = new Audio(dataurl.convert({ data, mimetype: 'audio/wav'}));
-
-          // This only works in dev, not in packaged. Which is a pain.
-          //$scope.files[i].player = new Audio($scope.files[i].fullpath);
-          $scope.files[i].player = document.createElement('audio');
-          $scope.files[i].player.src = 'file://' + $scope.files[i].fullpath;
-
-          $scope.files[i].preview = audioContext.createMediaElementSource($scope.files[i].player);
-          $scope.files[i].filterLo = audioContext.createBiquadFilter();
-          $scope.files[i].filterHi = audioContext.createBiquadFilter();
-          $scope.files[i].filterLo.type = "lowpass";
-          $scope.files[i].filterHi.type = "highpass";
-          $scope.files[i].filterLo.frequency.setValueAtTime(20000, audioContext.currentTime);
-          $scope.files[i].filterHi.frequency.setValueAtTime(40, audioContext.currentTime);
-
-          $scope.files[i].preview.connect($scope.files[i].filterLo);
-          $scope.files[i].filterLo.connect($scope.files[i].filterHi);
 
 
-          $scope.files[i].leftGainLevel = 1;
-          $scope.files[i].rightGainLevel = 1;
-          $scope.files[i].splitter = audioContext.createChannelSplitter(2);
-          $scope.files[i].leftGain = audioContext.createGain();
-          $scope.files[i].rightGain = audioContext.createGain();
-          $scope.files[i].outputmerger = audioContext.createChannelMerger(1);
-          $scope.files[i].leftGain.gain.setValueAtTime($scope.files[i].leftGainLevel, audioContext.currentTime);
-          $scope.files[i].rightGain.gain.setValueAtTime($scope.files[i].rightGainLevel, audioContext.currentTime);
+          var file = new window.Blob([data]);
+          var abuffer;
+          var fileReader = new FileReader();
+          fileReader.onload = function(event) {
+            abuffer = event.target.result;
+            audioContext.decodeAudioData(abuffer, function() {
+              console.log("decoded");
+              $scope.loading = false;
+              $scope.$apply();
+            }, function() {
+              console.log("couldn't decode");
+            }).then(function(buffer) {
+              //var audioBuffer = buffer;
+              //var data = buffer.getChannelData(0);
+              //console.log(data);
+              // DO STUFF
+              $scope.files[i].buffer = buffer;
+              $scope.files[i].realtimeDuration = buffer.duration * (1/globalPlaybackRate);
+              $scope.files[i].displaybuffer = [0];
+              $scope.files[i].filtercanvas = document.getElementById('filter-canvas-' + i);
+              $scope.files[i].bytelimitcanvas = document.getElementById('bytelimit-canvas-' + i);
+              $scope.files[i].spectrumcanvas = document.getElementById('spectrum-canvas-' + i);
+              $scope.files[i].spectrum = audioContext.createAnalyser();
+              $scope.files[i].spectrum.fftSize= 128;
+              $scope.files[i].spectrumData = new Uint8Array($scope.files[i].spectrum.frequencyBinCount);
+              $scope.files[i].spectrumCtx = $scope.files[i].spectrumcanvas.getContext('2d');
+              $scope.files[i].bytelimitCtx = $scope.files[i].bytelimitcanvas.getContext('2d');
 
-          $scope.files[i].filterHi.connect($scope.files[i].splitter);
-          $scope.files[i].splitter.connect($scope.files[i].leftGain, 0);
-          $scope.files[i].splitter.connect($scope.files[i].rightGain, 1);
+              // soxi replacement stuff:
+              $scope.files[i].filetype = $scope.files[i].fullpath.substr(3).toUpperCase();
+              $scope.files[i].info.samplerate = buffer.sampleRate;
+              $scope.files[i].info.channelcount = buffer.numberOfChannels;
+              $scope.files[i].info.bitdepth = 32; // Web Audio always returns a 32bit floating point buffer, -1.0,1.0 range
+              $scope.files[i].info.duration = buffer.duration;
+              $scope.files[i].info.length = buffer.length; // length of PCM data in sample-frames
+              $scope.files[i].trimrange = buffer.duration;
+              $scope.files[i].trimend = buffer.duration;
+              $scope.files[i].trimoptions.ceil = buffer.duration;
+              $scope.files[i].outputsize = 8 * $scope.options.samplerate * buffer.duration;
+              $scope.files[i].limiter_enabled = false;
 
-          $scope.files[i].leftGain.connect($scope.files[i].outputmerger, 0);
-          $scope.files[i].rightGain.connect($scope.files[i].outputmerger, 0);
 
-          $scope.files[i].filtercanvas = document.getElementById('filter-canvas-' + i);
-          $scope.files[i].bytelimitcanvas = document.getElementById('bytelimit-canvas-' + i);
-          $scope.files[i].spectrumcanvas = document.getElementById('spectrum-canvas-' + i);
-          $scope.files[i].spectrum = audioContext.createAnalyser();
-          $scope.files[i].spectrum.fftSize= 128;
-          $scope.files[i].spectrumData = new Uint8Array($scope.files[i].spectrum.frequencyBinCount);
-          $scope.files[i].spectrumCtx = $scope.files[i].spectrumcanvas.getContext('2d');
-          $scope.files[i].bytelimitCtx = $scope.files[i].bytelimitcanvas.getContext('2d');
 
-          $scope.files[i].outputmerger.connect($scope.files[i].spectrum);
 
-          /*
-          $scope.files[i].bitcrushNode = bitcrusher(audioContext, {
-            bitDepth: 16,
-            frequency: 1
-          })
+              //$scope.files[i].spectrum.connect(bitcrushNode);
 
-          $scope.files[i].spectrum.connect($scope.files[i].bitcrushNode);
+              //$scope.files[i].player.isPlaying = false;
+              //$scope.files[i].player.unplayed = true;
 
-          $scope.files[i].bitcrushNode.connect(volumeGain);
-          */
-          $scope.files[i].spectrum.connect(bitcrushNode);
 
-          $scope.files[i].player.isPlaying = false;
-          $scope.files[i].player.unplayed = true;
 
-          // Set PT note to whatever the current global note is
-          $scope.files[i].samplerate = $scope.options.samplerate;
-          // Set mixdown to whatever the current global mixdown option is
-          $scope.files[i].mixdown = $scope.options.mixdown;
-          $scope.files[i].postLP_enabled = $scope.options.lowpass_enabled;
+              // Set PT note to whatever the current global note is
+              $scope.files[i].samplerate = $scope.options.samplerate;
+              $scope.files[i].ptnote = $scope.options.ptnote;
 
-          // Fix the trimoptions ID
-          $scope.files[i].trimoptions.id = i;
+              // Fix the trimoptions ID
+              $scope.files[i].trimoptions.id = i;
 
-          // This is a bit of a CPU-killer, needless to say. And it's completely unnecessary.
-          // But if you really want it, uncomment $scope.files[i].draw(); below!
-          $scope.files[i].draw = function() {
-              //draw some spectrum analyser bars
-              $scope.files[i].spectrumCtx.clearRect(0, 0, $scope.files[i].spectrumcanvas.width, $scope.files[i].spectrumcanvas.height);
-              var drawVisual = requestAnimationFrame($scope.files[i].draw);
-              $scope.files[i].spectrum.getByteFrequencyData($scope.files[i].spectrumData);
-              $scope.files[i].spectrumCtx.fillStyle = 'rgb(0, 0, 0, 0.2)';
-              $scope.files[i].spectrumCtx.fillRect(0, 0, $scope.files[i].spectrumcanvas.width, $scope.files[i].spectrumcanvas.height)
-              var barWidth = ($scope.files[i].spectrumcanvas.width / $scope.files[i].spectrum.frequencyBinCount) * 2.5;
-              var barHeight;
-              var x = 0;
-              for (var v = 0; v < $scope.files[i].spectrum.frequencyBinCount; v++) {
-                barHeight = $scope.files[i].spectrumData[v]/2;
-                $scope.files[i].spectrumCtx.fillStyle = 'rgb(' + (barHeight+128) + ' ,'+(barHeight+128)+','+(barHeight+128)+', 0.6)';
-                $scope.files[i].spectrumCtx.fillRect(x, $scope.files[i].spectrumcanvas.height-barHeight/2, barWidth, barHeight);
-                x += barWidth + 1;
+              // This is a bit of a CPU-killer, needless to say. And it's completely unnecessary.
+              // But if you really want it, uncomment $scope.files[i].draw(); below!
+              $scope.files[i].draw = function() {
+                  //draw some spectrum analyser bars
+                  $scope.files[i].spectrumCtx.clearRect(0, 0, $scope.files[i].spectrumcanvas.width, $scope.files[i].spectrumcanvas.height);
+                  var drawVisual = requestAnimationFrame($scope.files[i].draw);
+                  $scope.files[i].spectrum.getByteFrequencyData($scope.files[i].spectrumData);
+                  $scope.files[i].spectrumCtx.fillStyle = 'rgb(0, 0, 0, 0.2)';
+                  $scope.files[i].spectrumCtx.fillRect(0, 0, $scope.files[i].spectrumcanvas.width, $scope.files[i].spectrumcanvas.height)
+                  var barWidth = ($scope.files[i].spectrumcanvas.width / $scope.files[i].spectrum.frequencyBinCount) * 2.5;
+                  var barHeight;
+                  var x = 0;
+                  for (var v = 0; v < $scope.files[i].spectrum.frequencyBinCount; v++) {
+                    barHeight = $scope.files[i].spectrumData[v]/2;
+                    $scope.files[i].spectrumCtx.fillStyle = 'rgb(' + (barHeight+128) + ' ,'+(barHeight+128)+','+(barHeight+128)+', 0.6)';
+                    $scope.files[i].spectrumCtx.fillRect(x, $scope.files[i].spectrumcanvas.height-barHeight/2, barWidth, barHeight);
+                    x += barWidth + 1;
+                  }
               }
+
+              // Get the item's canvas so we can draw the waveform onto it
+              $scope.files[i].canvas = document.getElementById('wform-canvas-' + i);
+              var context = $scope.files[i].canvas.getContext('2d');
+              var data = buffer.getChannelData(0);
+              // Work out a sensible height and width for the waveform chunks relative to canvas dimensions
+              var step = Math.ceil(data.length / $scope.files[i].canvas.width);
+              var amp = $scope.files[i].canvas.height / 2;
+              // Find the peak (highest-amplitude sample), then normalise the waveform to that peak value. This
+              // means that quiet samples can be visualised better; the sox process does peak-normalisation
+              // anyway, regardless of what we do here.
+              var peak = data.reduce(function(a, b) {
+                return Math.max(a, b)
+              })
+              var normed = [];
+              for (var b in data) {
+                normed[b] = data[b] * 1/peak;
+              }
+              // Draw the waveform
+              for (var k = 0; k < $scope.files[i].canvas.width; k++) {
+                var min = 1.0;
+                var max = -1.0;
+                for (var j = 0; j < step; j++) {
+                  var datum = normed[k * step + j];
+                  if (datum < min) min = datum;
+                  if (datum > max) max = datum;
+                }
+                //context.fillStyle = "#7cca8f";
+                //context.fillStyle = "#37946e";
+                context.fillStyle = "#ff99cc";
+                context.fillRect(k, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
+              }
+
+
+              $scope.updateGlobalEffects();
+              $scope.$apply();
+            }).catch((err) => {
+              console.log("Couldn't read the audio data")
+              console.log(err)
+              $scope.loading = false;
+              $scope.files = $scope.files.slice(0,$scope.files.length-1);
+              $scope.statusmsg = "Couldn't decode audio";
+
+              $timeout(function() {
+                $scope.statusmsg = "All is well";
+              }, 5000)
+              $scope.$apply();
+            })
           }
 
-          //$scope.files[i].draw();
-
-
-          $scope.files[i].player.addEventListener('timeupdate', function() {
-
-            if ($scope.files[i]) {
-                if(!$scope.files[i].player.paused) {
-
-                  // Move the playhead smoothly
-                  var playhead = document.getElementById('playhead-' + i);
-
-                  var tempinterval = setInterval(function () {
-
-                        //console.log($scope.files[i].player.currentTime);
-                        var phNewpos = Math.round($scope.files[i].player.currentTime.map(0, $scope.files[i].info.duration, 0, 325));
-                        playhead.style['left'] = phNewpos + 'px';
-
-                        if ($scope.files[i].player.currentTime >= $scope.files[i].trimend) {
-                          $scope.files[i].player.currentTime = $scope.files[i].trimstart;
-                        }
-                  }, 30);
-                  intervals.push(tempinterval);
-
-                }
-              }
-
-          })
-
-          $scope.files[i].player.addEventListener('ended', function() {
-            console.log("this sample's playback has ended");
-
-            document.getElementById('playericon-'+i).classList.remove('fa-pause');
-            document.getElementById('playericon-'+i).classList.add('fa-play');
-          })
-
-          /*
-          $scope.files[i].player.ontimeupdate = function () {
-            var playhead = document.getElementById('playhead-' + i);
-            //console.log(playhead.style['left']);
-
-            if (!$scope.files[i].player.paused) {
-              setInterval(function () {
-                //console.log($scope.files[i].player.currentTime);
-                var phNewpos = Math.round($scope.files[i].player.currentTime.map(0, $scope.files[i].info.duration, 0, 325));
-                playhead.style['left'] = phNewpos + 'px';
-
-                if ($scope.files[i].player.currentTime >= $scope.files[i].trimend) {
-                  $scope.files[i].player.currentTime = $scope.files[i].trimstart;
-                }
-              }, 30);
-            }
-          };
-          */
-          //$scope.updateItemEffects(i);
-          $scope.updateGlobalEffects();
+          fileReader.readAsArrayBuffer(file);
         }
 
       }) //fs.readFile end
 
-      drawAudio($scope.files.length - 1);
-      $scope.$apply();
+      //drawAudio($scope.files.length - 1);
 
   }
+
 
 
   var drawAudio = function drawAudio(i) {
     // Nothing we do here affects playback audio or the exported sample - display purposes only.
     fs.readFile($scope.files[i].fullpath, function(err, data) {
-      $scope.loading = true;
+      //$scope.loading = true;
       if(data && !err) {
         console.log("loaded successfully...");
         var file = new window.Blob([data]);
@@ -636,123 +733,309 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
 
   $scope.processItem = function (idx, cb) {
-    var dither, normalise;
-    if ($scope.options.dither) {
-      dither = "";
-    } else {
-      dither = "--no-dither";
-    }
-    if ($scope.options.normalise) {
-      normalise = "--norm";
-    } else {
-      normalise = "";
-    }
+    return new Promise((resolve, reject) => {
 
-    $scope.files[idx].processing = true;
-    $scope.files[idx].buttontext = "Converting...";
+        $scope.files[idx].processing = true;
+        $scope.files[idx].buttontext = "Converting...";
 
-    var lowp = "";
-    // Got caught out by Nyquist on this one!
-    if($scope.files[idx].samplerate/2 > 8202 && $scope.files[idx].postLP_enabled) {
-      lowp = " lowpass 8202";
-    }
-
-    var infile = $scope.files[idx].fullpath;
-    var outfile;
-    if($scope.options.outputDir && $scope.options.outputDir.length > 0 && !$scope.options.outputToSource) {
-      var fpath = $scope.files[idx].targetpath;
-      outfile = $scope.options.outputDir + fpath.substr(fpath.lastIndexOf(pathslash), fpath.length)
-    } else {
-      outfile = $scope.files[idx].targetpath;
-    }
-
-    var depthcmd = ' -b 8';
-    var filtercmd = '';
-    if($scope.files[idx].lowpassfrequency < 20000 || $scope.files[idx].highpassfrequency > 40 ) {
-      //sinccmd = ' sinc ' + $scope.options.highpasscutoff + '-' + $scope.options.lowpasscutoff + ' ';
-      filtercmd = ' highpass -1  ' + $scope.files[idx].highpassfrequency + ' lowpass -1 ' + $scope.files[idx].lowpassfrequency + ' ';
-    }
-    var trimcmd = ' trim ' + $scope.files[idx].trimstart + ' ' + $scope.files[idx].trimrange;
-    if($scope.files[idx].info.channelcount > 1) {
-        var remixcmd = ' remix ' + $scope.files[idx].mixdown;
-    } else {
-      var remixcmd = '';
-    }
-    var normcmd = ' norm 0.5';
-    var dithercmd = ' dither -S';
-    var ratecmd = ' rate ' + $scope.files[idx].samplerate;
-
-
-    soxProcess(infile,' ', outfile, trimcmd + normcmd + remixcmd + filtercmd + ratecmd + lowp + normcmd + dithercmd, function (error, stdout, stderr) {
-      if (error) {
-        console.log(error);
-        console.log(stderr);
-        var suggestion = "";
-        if(stderr.toString().toLowerCase().includes('can\'t open output file')) {
-          suggestion += "\nAre you sure the output directory exists? Try creating it if you've renamed/deleted it, or set a new one."
+        var lowp = "";
+        // Got caught out by Nyquist on this one!
+        if($scope.files[idx].samplerate/2 > 8202 && $scope.options.lowpass_enabled) {
+          lowp = " lowpass 8202";
         }
-        alert("Something went horribly wrong: \n\n" + stderr.toString() + suggestion);
-      } else {
-        console.log("Done: " + $scope.files[idx].targetpath);
-        $scope.files[idx].processing = false;
-        $scope.files[idx].buttontext = "Convert";
-        $scope.statusmsg = "Success!";
-        $timeout(function() {
-          $scope.statusmsg = "All is well";
-        }, 5000)
-        $scope.$apply();
-        if (cb) {
-          cb(idx);
+
+        var infile = $scope.files[idx].fullpath;
+        var outfile;
+        if($scope.options.outputDir && $scope.options.outputDir.length > 0 && !$scope.options.outputToSource) {
+          var fpath = ($scope.options.truncateFilenames ? $scope.files[idx].targetpath_trunc : $scope.files[idx].targetpath);
+          outfile = $scope.options.outputDir + fpath.substr(fpath.lastIndexOf(pathslash), fpath.length)
+        } else {
+          outfile = ($scope.options.truncateFilenames ? $scope.files[idx].targetpath_trunc : $scope.files[idx].targetpath);
         }
-      }
-    });
+
+        // now RENDER OFFLINE:
+
+        var renderstart = $scope.files[idx].trimstart;
+        var samplerate = $scope.files[idx].samplerate;
+
+        let offcontext = new OfflineAudioContext(1, $scope.files[idx].outputsize, samplerate);
+        let offsource = offcontext.createBufferSource();
+        offsource.buffer = $scope.files[idx].buffer;
+
+        // OFFLINE DSP HAPPENS HERE
+
+        let ccompressor = offcontext.createDynamicsCompressor();
+        let cgain = offcontext.createGain(); // compressor gain
+        let filterPost = offcontext.createBiquadFilter();
+        filterPost.type="highshelf";
+        filterPost.frequency.setValueAtTime(8000, offcontext.currentTime);
+        filterPost.gain.setValueAtTime(-1, offcontext.currentTime);
+
+        ccompressor.threshold.setValueAtTime($scope.files[idx].limiterThresh,offcontext.currentTime)
+        ccompressor.knee.setValueAtTime(0.0,offcontext.currentTime)
+        ccompressor.ratio.setValueAtTime(20.0,offcontext.currentTime)
+        ccompressor.attack.setValueAtTime(0.0002,offcontext.currentTime)
+        ccompressor.release.setValueAtTime(0.06,offcontext.currentTime)
+        cgain.gain.setValueAtTime(1+$scope.files[idx].limiterMakeup/100, offcontext.currentTime);
+
+        let outputFilterLo = offcontext.createBiquadFilter();
+        let outputFilterHi = offcontext.createBiquadFilter();
+        outputFilterLo.type = "lowpass";
+        outputFilterHi.type = "highpass";
+        let hipassVal = $scope.files[idx].lowpassfrequency
+        let lopassVal = $scope.files[idx].highpassfrequency
+        console.log("lopassVal: " + lopassVal + " hipassVal: " + hipassVal);
+        outputFilterHi.frequency.setValueAtTime(lopassVal, offcontext.currentTime);
+        outputFilterLo.frequency.setValueAtTime(hipassVal, offcontext.currentTime);
+        outputFilterHi.Q.setValueAtTime(0, offcontext.currentTime);
+        outputFilterLo.Q.setValueAtTime(0, offcontext.currentTime);
+
+        if($scope.files[idx].limiter_enabled) {
+          offsource.disconnect();
+          ccompressor.disconnect();
+          offsource.connect(ccompressor);
+          ccompressor.connect(cgain);
+        } else {
+          // Make the makeup gain available even when the limiter's off, to offer a gain boost
+          // that's still independent of playback volume (the normalisation might not always be enough,
+          // e.g. if there's a rogue spike that's triggering the peak limit.)
+          ccompressor.disconnect();
+          offsource.disconnect()
+          offsource.connect(cgain);
+        }
+
+        cgain.connect(outputFilterLo);
+        outputFilterLo.connect(outputFilterHi);
+
+
+        if($scope.options.lowpass_enabled && offsource.buffer.sampleRate > 8000) {
+          console.log("Samplerate is " + $scope.files[idx].samplerate + " so we can apply the 8k filter")
+          outputFilterHi.connect(filterPost);
+          filterPost.connect(offcontext.destination);
+        } else {
+          outputFilterHi.connect(offcontext.destination);
+        }
+
+
+        offsource.start(0, renderstart, $scope.files[idx].outputsize / samplerate);
+
+        offcontext.startRendering().then((renderedBuffer) => {
+          console.log("Great Success!");
+          var processed = audioContext.createBufferSource();
+          processed.buffer = renderedBuffer;
+          console.log(processed.buffer);
+
+          var outData = Buffer.from(processed.buffer);
+          var outData = processed.buffer.getChannelData(0);
+
+
+
+
+          // Peak Normalise or normalise it according to gain reduction slider before we convert to 8bit
+
+          let peak;
+
+          // TO DO - THIS IS A FUCKING SHAMBLES
+
+          // First get the peak (remember: this audiodata is 32bit float! -1 to 1 range!)
+          peak = outData.reduce(function(a,b) {
+            return Math.max(a,b);
+          })
+          console.log("Initial peak: " + peak);
+          // Then if the normalisation slider overrides that peak, override it:
+          /*
+          let normaliseValue = $scope.options.outputGain;
+          normaliseValue = normaliseValue.map(-42, 0, 0, 1)
+          console.log("mapped normaliseValue: " + normaliseValue);
+          if($scope.options.outputGain < 0) {
+            peak += normaliseValue;
+          }
+          console.log("new peak: " + peak);
+          */
+
+
+          // Now normalise it:
+          for (var b in outData) {
+            outData[b] = outData[b] * 1/peak;
+            if(outData[b] > 1) {
+              outData[b] = 1;
+            } else if(outData[b] < -1) {
+              outData[b] = -1;
+            }
+          }
+
+
+          // Convert from 32bit float to 8bit and clamp
+          var outData8bitArr = [];
+
+          for(var i in outData) {
+            outData8bitArr[i] = Math.round(outData[i] * 128);
+            if(outData8bitArr[i] > 127) {
+              outData8bitArr[i] = 127;
+            }
+            if(outData8bitArr[i] < -128) {
+              outData8bitArr[i] = -128;
+            }
+          }
+          // Trimming any leading silence due to Web Audio offline context latency that we can't reliably calculate
+          var startPos = 0;
+          for(var s in outData8bitArr) {
+            if(outData8bitArr[s] > 0) {
+              startPos = s;
+              console.log("Found the startpoint! : " + s);
+              outData8bitArr = outData8bitArr.slice(startPos);
+              break;
+            }
+          }
+
+
+          if(outData8bitArr.length % 2 == 0) {
+            console.log("Nice even number: " + outData8bitArr.length)
+          } else {
+            console.log("Had to pad it!");
+            outData8bitArr.push(0);
+          }
+
+          var outDataBuf = Buffer.from(outData8bitArr);
+
+
+          if($scope.options.saveWav) {
+            // Prep to save RIFF WAV
+            /*
+              1-4   "RIFF"
+              5-8   File size in UInt32. Data + 44b header
+              9-12    "WAVE"
+              13-16   "fmt " (includes trailing null)
+              17-20   16   Length of format data as listed above
+              21-22   1    Type of format (1 is PCM) - UInt16 integer
+              23-24   1    Number of channels (always mono for us!)
+              25-28        Sample rate - UInt32
+              29-32        Sample rate * 8 (bits per sample) * 1 (channel) / 8
+              33-34   1    (8 (bits per sample) * 1 (channel)) / 8
+              35-36   8    Bits per sample
+              37-40   "data"  Chunk header, marks start of data section
+              41-44        Data size
+
+            */
+            var outSize = outDataBuf.length + 36;
+
+            var outDataSigned = [];
+            for (var b = 0; b < outDataBuf.length; b++) {
+              outDataSigned[b] = outDataBuf.readInt8(b)  -128;
+            }
+            outDataBuf = Buffer.from(outDataSigned);
+            console.log(outDataBuf);
+
+            console.log("WAV outSize (should always be even) = " + outSize + " outDataBuf len: " + outDataBuf.length);
+            var smpOutBuf = Buffer.alloc(outSize+8);
+
+            smpOutBuf.write('RIFF', 0, 4, 'ascii');
+            smpOutBuf.writeUInt32LE(outSize,4);
+
+            smpOutBuf.write('WAVE', 8, 4, 'ascii');
+
+            smpOutBuf.write('fmt', 12, 3, 'ascii');
+            smpOutBuf.writeInt8(0x20,15);
+
+            smpOutBuf.writeUInt32LE(16, 16);
+            smpOutBuf.writeUInt16LE(1, 20);
+            smpOutBuf.writeUInt16LE(1, 22);
+            smpOutBuf.writeUInt32LE($scope.files[idx].samplerate, 24);
+            smpOutBuf.writeUInt32LE($scope.files[idx].samplerate, 28);
+            smpOutBuf.writeUInt16LE(1,32);
+            smpOutBuf.writeUInt16LE(8,34);
+            smpOutBuf.write("data", 36, 4, 'ascii');
+            smpOutBuf.writeUInt32LE(outDataBuf.length,40);
+            outDataBuf.copy(smpOutBuf, 44, 0, outDataBuf.length);
+            // 8bit signed for WAV, rather than the 8bit unsigned we prepared for 8SVX
+            for (var o = 44; o < outDataBuf.length; o++) {
+              outDataBuf.writeInt8(outDataBuf.readUInt8(o)-128, o)
+            }
+            outfile = outfile.substring(0, outfile.lastIndexOf('.8SVX'));
+            outfile += '.WAV';
+            console.log('attempting to write WAV to ' + outfile);
+            fs.writeFile(outfile, smpOutBuf, function(err) {
+              if(err) {
+                console.log(err)
+                alert(err);
+              } else {
+                console.log('WAV file written, maybe!');
+                $scope.loading = false;
+                resolve();
+              }
+            });
+
+          } else {
+            // Now that we've got a buffer, I guess we can write it to 8SVX...
+            // Work out the output filesize first: we need it both for the buffer allocation and for the FORM
+
+            // FORM and outsize take up 8 bytes, and outsize states the length of the REST of the entire file:
+            // 8SVXVHDR (8) + sampledata length (8) + repeats/hicycle (8) + samplerate (2) + octave (1) + comp (1) + volume (4)
+            // = 32 + sampledatalength = FORM's size + 8 = *our* outsize.
+            var formSize = 32 + outDataBuf.length;
+            var outSize = formSize+8;
+            console.log("output size: " + outSize);
+
+            var smpOutBuf = Buffer.alloc(outSize);
+            smpOutBuf.write('FORM', 0, 4, 'ascii');
+            smpOutBuf.writeUInt32BE(formSize,4);
+            smpOutBuf.write('8SVXVHDR',8,8,'ascii');
+            smpOutBuf.writeInt8(0,16);
+            smpOutBuf.writeInt8(0,17);
+            smpOutBuf.writeInt8(0,18);
+            smpOutBuf.writeInt8(20,19); // This header's own length, I think...
+            smpOutBuf.writeUInt32BE(outDataBuf.length, 20);
+            // Then it's 8 empty bytes, because we don't care about repeatHiSamples or samplesPerHiCycle
+            // Then samplerate as a UInt16BE
+            smpOutBuf.writeUInt16BE($scope.files[idx].samplerate,32);
+            smpOutBuf.writeInt8(1, 34); // Octave is always 1
+            smpOutBuf.writeInt8(0, 35); // Compression always 0
+            smpOutBuf.writeInt8(0, 36); // These
+            smpOutBuf.writeInt8(1, 37); // constitute
+            smpOutBuf.writeInt8(0, 38); // the volume,
+            smpOutBuf.writeInt8(0, 39); // always 256 (100h)
+            smpOutBuf.write('BODY', 40, 4, 'ascii');
+            smpOutBuf.writeUInt32BE(outDataBuf.length, 44);
+
+            outDataBuf.copy(smpOutBuf, 48, 0, outDataBuf.length);
+
+            //let outPath = $scope.files[idx].inputDir + 'TESTER.8SVX';
+
+            console.log('attempting to write 8SVX to ' + outfile);
+            fs.writeFile(outfile, smpOutBuf, function(err) {
+              if(err) {
+                console.log(err)
+                alert(err);
+              } else {
+                console.log('8SVX file written, maybe!');
+                $scope.loading = false;
+                resolve();
+              }
+            });
+
+          }
+
+        })
+
+
+      })
+
   };
 
-  $scope.playerControl = function (idx) {
-    //var player = document.getElementById('audio-'+idx);
-    //player.play();
-    if($scope.files[idx].player.unplayed) {
-      $scope.files[idx].player.unplayed = false;
-    }
-    if ($scope.files[idx].player.paused) {
-      $scope.files[idx].player.play();
-      document.getElementById('playericon-'+idx).classList.remove('fa-play');
-      document.getElementById('playericon-'+idx).classList.add('fa-pause');
-    } else {
-      $scope.files[idx].player.pause();
-      document.getElementById('playericon-'+idx).classList.remove('fa-pause');
-      document.getElementById('playericon-'+idx).classList.add('fa-play');
-    }
-  };
 
-  $scope.playerControlRestart = function(idx) {
-    if($scope.files[idx].player.unplayed) {
-      $scope.files[idx].player.unplayed = false;
-    }
-    if ($scope.files[idx].player.paused) {
-      $scope.files[idx].player.currentTime = $scope.files[idx].trimstart;
-      $scope.files[idx].player.play();
-      document.getElementById('playericon-'+idx).classList.remove('fa-play');
-      document.getElementById('playericon-'+idx).classList.add('fa-pause');
-    } else {
-      $scope.files[idx].player.pause();
-      document.getElementById('playericon-'+idx).classList.remove('fa-pause');
-      document.getElementById('playericon-'+idx).classList.add('fa-play');
-    }
-  }
 
   $scope.chooseOutputDir = function() {
     console.log("choose button clicked");
     //document.getElementById('outputDirChooser').click();
     // get this elsewhere with document.getElementById('outputDirChooser').files[0].path
-    var path = dialog.showOpenDialog({
-      properties: ['openDirectory','createDirectory']
-    })
-    if(path.length > 0) {
+
+    dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      //defaultPath: ($scope.options.outputDir && $scope.options.outputDir.length > -1 ? $scope.options.outputDir : '')
+    }, (path) => {
+      console.log(path)
       $scope.options.outputDir = path;
-    } else {
-      $scope.options.outputDir = "";
-    }
+    })
 
   }
 
@@ -765,41 +1048,51 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   // file location)
 
  $scope.chooseInputFiles = function() {
+   $scope.loading = true;
+
    console.log("choose input files button clicked");
 
-   var paths = dialog.showOpenDialog({
-     properties: ['openFile','multiSelections','createDirectory']
-   })
-   if(paths && paths.length > 0) {
+   dialog.showOpenDialog({
+     properties: ['openFile', 'multiSelections', 'createDirectory']
+   }).then(result => {
+     console.log(result.canceled)
+     console.log(result.filePaths)
+     if(result.canceled) {
+       $scope.loading = false;
+       $scope.$apply();
+     } else if(result.filePaths.length > 0) {
+       let paths = result.filePaths;
+       var cachepath = paths[0].substring(0, paths[0].lastIndexOf(pathslash) + 1)
+       console.log(cachepath)
+       // Save this as the last-used source directory
+       $scope.options.inputDir = cachepath;
 
-     var cachepath = paths[0].substring(0, paths[0].lastIndexOf(pathslash) + 1)
-     console.log(cachepath)
-     // Save this as the last-used source directory
-     $scope.options.inputDir = cachepath;
+       // Process file[s]
+       for (var i = 0; i < paths.length; i++) {
 
-     // Process file[s]
-     for (var i = 0; i < paths.length; i++) {
-
-       var fileExt = paths[i].substring(paths[i].lastIndexOf('.')+1, paths[i].length);
-       console.log(paths[i]);
-       if($scope.filetypes.indexOf(fileExt.toUpperCase()) > -1) {
-         var promise = prepItem(paths[i]);
-         promise.then(function(tmpfile) {
-           console.log("Promise returned, did a thing");
-           console.log(tmpfile);
-           createItem(tmpfile);
-         })
-       } else {
-         console.log("Nope, not loading ", fileExt);
+         var fileExt = paths[i].substring(paths[i].lastIndexOf('.')+1, paths[i].length);
+         console.log(paths[i]);
+         if($scope.filetypes.indexOf(fileExt.toUpperCase()) > -1) {
+           var promise = prepItem(paths[i]);
+           promise.then(function(tmpfile) {
+             console.log("Promise returned, did a thing");
+             console.log(tmpfile);
+             createDecodedItem(tmpfile);
+           })
+         } else {
+           console.log("Nope, not loading ", fileExt);
+           $scope.loading = true;
+           //alert("Invalid input file - "+fileExt+"!\n\nAmigaPal outputs 8SVX files from any of the following input filetypes:\n\n.WAV\n.MP3\n.OGG\n.FLAC\n.AIFF\n.AIF\n.AAC")
+         }
        }
 
+     } else {
+       $scope.options.inputDir = "";
      }
+   }).catch(err => {
+     console.log(err);
+   })
 
-
-
-   } else {
-     $scope.options.inputDir = "";
-   }
  }
 
 
@@ -809,84 +1102,198 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     $scope.files[idx].trimrange = $scope.files[idx].trimend - $scope.files[idx].trimstart;
     $scope.files[idx].outputsize = $scope.options.bitdepth * $scope.files[idx].samplerate * $scope.files[idx].trimrange / 8;
 
-    // Get the x offset position of the trimstart slider in pixels
+    let file = $scope.files[idx];
     /*
-    var thisMinPtr = document.getElementById('trimslider-'+idx).getElementsByClassName('rz-pointer-min')[0].style.left.slice(0, -2);
-
-    console.log("trimstart pointer position: " + thisMinPtr + "px");
-    console.log("limit64 width: " + $scope.files[idx].limit64width + "px");
-
-    var cnv = $scope.files[idx].bytelimitcanvas;
-    var ctx = $scope.files[idx].bytelimitCtx;
-    ctx.clearRect(0, 0, cnv.width, cnv.height);
-    ctx.beginPath();
-    ctx.fillStyle = "rgba(191, 115, 218, 0.5)";
-    ctx.setTransform(1, 0, 0, 1, thisMinPtr, 0);
-    ctx.rect(0, 0, $scope.files[idx].limit64width, 210);
-    ctx.fill();
+    console.log("buffer LENGTH in sample frames: " + file.info.length);
+    console.log("buffer samplerate: " + file.info.samplerate)
+    console.log("buffer channelcount: " + file.info.channelcount);
+    console.log("buffer bit depth: " + file.info.bitdepth);
+    console.log("trimstart: " + file.trimstart);
+    console.log("trimend: " + file.trimend);
+    console.log("output size: " + file.outputsize);
     */
-
   }
 
+
+  function d2h(d) {
+    var s = (+d).toString(16);
+    if(s.length < 2) {
+        s = '0' + s;
+    }
+    return s;
+  }
+
+
+  $scope.writeMod = function() {
+
+    // Read the template mod
+    fspromises.readFile(pathpath.join(__dirname,'/res/empty.mod')).then(mdata => {
+
+        if(mdata) {
+          console.log("loaded successfully...");
+
+            // Now get a test sample:
+
+            function readConvertedFile(writtenpath) {
+              return new Promise((resolve, reject) => {
+
+                fspromises.readFile(writtenpath).then(smpdata => {
+                  resolve(smpdata);
+                })
+
+              })
+            }
+
+            async function getSampData(paff, idx) {
+              await readConvertedFile(paff).then(smpdata => {
+                $scope.files[idx].sampledata = smpdata.slice(103);
+                // PT2.3F supports sample sizes up to 128kb, but the Win/Mac PT clone doesn't.
+                // Disable the 128kb option to limit samples at 64kb.
+                var maxsamplesize = ($scope.options.longSampleSupport ? 131070 : 65535);
+                if($scope.files[idx].sampledata.length > maxsamplesize) {
+                  console.log("this sample is too big so we're capping it at 131070 bytes");
+                  $scope.files[idx].sampledata = $scope.files[idx].sampledata.slice(0, maxsamplesize);
+                }
+                console.log("sample " + $scope.files[idx].targetfilename_trunc + " is No. " + idx + ". It's meant to be " + $scope.files[idx].sampledata.length + " long.");
+                return;
+              });
+
+            }
+
+            var promises = []
+
+            for (var i = 0; i < $scope.files.length; i++) {
+              var path;
+              if($scope.options.outputToSource) {
+                path = ($scope.options.truncateFilenames ? $scope.files[i].targetpath_trunc : $scope.files[i].targetpath);
+              } else {
+                path = ($scope.options.truncateFilenames ? $scope.options.outputDir + pathslash + $scope.files[i].targetfilename_trunc : $scope.options.outputDir + pathslash + $scope.files[i].targetfilename);
+              }
+              /*
+              getSampData(path).then(smpdata => {
+                console.log(smpdata);
+                console.log("YUP, GOT IT");
+              }).catch(error => console.log(error));
+              */
+
+              promises.push(getSampData(path, i));
+                //promises.push(readConvertedFile(path));
+            }
+
+            Promise.all(promises).then(() => {
+
+              // First we need to calculate the total output module filesize, so we can allocate a buffer
+              var modBuffer = Buffer.from(mdata);
+              var outsize = modBuffer.length; // the empty template
+              for (var i in $scope.files) {
+                if(i < 31) {
+                  outsize += $scope.files[i].sampledata.length;
+                }
+              }
+              var outBuf = Buffer.alloc(outsize); // Now we can overwrite sample records and dump sampledata after the patterndata at the correct offsets
+
+              /*
+               Now we can edit at the appropriate offsets:
+               0000   20b  Song title, padded with spaces
+               0020d  31 x 30b Sample records:
+                            22b  Sample name, padded with zeroes to full length
+                            2b   Sample length / 2 (needs to be x2 for actual length. If sample length > 8000h, then sample is >64k)
+                            1b    Sample finetune (0 for our purposes, but 0-F corresponds to 0 +1 +2 +3 +4 +5 +6 +7 -8 -7 -6 -5 -4 -3 -2 -1)
+                            1b    Sample volume (0-40h)
+                            2b   Sample loop start pos / 2
+                            2b   Sample loop length /2
+
+              All we're interested in is Song title, Sample name, Sample length. Each sample volume is 40,
+              loop start/length are 0, finetune is 0.
+              A sample record is 30bytes, and even an empty mod contains 31 of these.
+              Sampledata begins immediately after patterndata, so we have to check offset 950d for song length
+              in patterns (which we know is 1), ignore offset 951, ignore 952 to 1079 (song positions 0-127),
+              ignore 1080 to 1083 (M.K. check), and 1084 to 2107 (empty pattern 0).
+              Our sampledata will start at 2108, and each sample's start offset is:
+                2108 + each_previous_sample_length
+              When reading in 8svx buffers, chop them off at 131070 bytes (just under 128kb)
+
+              */
+
+              modBuffer.copy(outBuf, 0, 0, modBuffer.length) // Paste the template into our mod
+              var title = (($scope.options.modTitle && $scope.options.modTitle.length > 0) ? $scope.options.modTitle.substring(0,21) : 'AMIGAPAL_TEMPLATE.MOD')
+              console.log("found a mod title: " + $scope.options.modTitle);
+              title = title.replace("[^a-zA-Z0-9]+","").substr(0, 16) + '.MOD';
+              outBuf.write(title,0,21,'ascii');
+
+              var offsetCounter = 2108;
+
+              for (var d in $scope.files) {
+                // Module only cares about the first 31 samples - the rest are ignored.
+                if(d < 31) {
+                    // Then we need to cap the sample off at 128kb:
+                    //smpBuffer = smpBuffer.slice(0,131071)
+                    //console.log(smpBuffer)
+                    // Prep stuff for this sample's samplerecord
+                    var smpname = ($scope.options.truncateFilenames ? $scope.files[d].targetfilename_trunc : $scope.files[d].targetfilename);
+                    var smprecordOffset = 20 + (30 * d);
+                    outBuf.write(smpname, smprecordOffset, smpname.length, 'ascii');
+                    outBuf.writeUInt16BE($scope.files[d].sampledata.length/2, smprecordOffset + 22);
+                    outBuf.writeUInt8(64,smprecordOffset+25); // volume to max
+                    $scope.files[d].sampledata.copy(outBuf, offsetCounter, 0, $scope.files[d].sampledata.length);
+                    offsetCounter += $scope.files[d].sampledata.length; // Now the data's written, we can move the offsetCounter forward for the next one
+                }
+
+              }
+
+
+              // ALL DONE, WRITE THE OUTPUT BUFFER
+              // If outputToSource is true, we could be looking at multiple source dirs for one mod output.
+              // And that won't do. So we'll just use the first one.
+              let modOutDir = ($scope.options.outputToSource ? $scope.files[0].fullpath.substring(0,$scope.files[0].fullpath.lastIndexOf(pathslash)): $scope.options.outputDir);
+              fs.writeFile(modOutDir + pathslash + title, outBuf, function(err) {
+
+                if(err) {
+                  console.log(err)
+                  alert(err);
+
+                } else {
+                  $scope.loading = false;
+                  $scope.statusmsg = "Mod file written!";
+                  $scope.$apply();
+                }
+              });
+            })
+
+        }
+
+    })
+
+
+  }
 
 
   $scope.applyToAll = function() {
-    if(confirm("Are you sure you want to apply these settings to every sample in the list?")) {
-        for (var i in $scope.files) {
-          $scope.files[i].samplerate = $scope.options.samplerate;
-          $scope.files[i].mixdown = $scope.options.mixdown;
-          $scope.files[i].postLP_enabled = $scope.options.lowpass_enabled;
-          //$scope.updateItemEffects(i);
-        }
-        $scope.updateGlobalEffects();
-    }
-
-  }
-
-  $scope.convertAll = function () {
     for (var i in $scope.files) {
-      //pause everything first
-      $scope.files[i].player.pause();
-      $scope.processItem(i, function (msg) {
-        console.log("File " + msg + " successfully converted");
-        if (i == msg) {
-          $scope.statusmsg = "Success!";
-          $timeout(function() {
-            $scope.statusmsg = "All is well";
-          }, 5000)
-        }
-      });
+      $scope.files[i].samplerate = $scope.options.samplerate;
+      $scope.files[i].ptnote = $scope.options.ptnote;
+
+      $scope.statusmsg = "Set all to " + $scope.options.ptnote;
+
+      $timeout(function() {
+        $scope.statusmsg = "All is well";
+      }, 5000)
     }
-  };
+    $scope.updateGlobalEffects();
+  }
 
 
   $scope.removeFile = function(i) {
-    $scope.files[i].player.pause();
-    $scope.files[i].spectrum.disconnect(bitcrushNode);
-    $scope.files[i].player.removeEventListener('timeupdate', function(){
-      console.log("eventlistener removed");
-    });
-    $scope.files[i].player.removeEventListener('ended', function(){
-      console.log("eventlistener removed");
-    });
+    destroyBufferPlayer(i);
     $scope.files.splice(i, 1);
-    intervals.forEach(clearInterval);
   }
 
   $scope.clearAll = function() {
     if(confirm("Are you sure you want to clear all samples from the list?")) {
       for (var i = 0; i < $scope.files.length; i++) {
-        $scope.files[i].player.pause();
-        $scope.files[i].player.removeEventListener('timeupdate', function(){
-          console.log("eventlistener removed");
-        });
-        $scope.files[i].player.removeEventListener('ended', function(){
-          console.log("eventlistener removed");
-        });
-        $scope.files[i].spectrum.disconnect(bitcrushNode);
+        destroyBufferPlayer(i);
       }
       $scope.files = [];
-      intervals.forEach(clearInterval);
     }
 
   }
@@ -914,6 +1321,54 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   }
 
+  $scope.toggleLPF = function() {
+    $scope.options.lowpass_enabled = !$scope.options.lowpass_enabled;
+  }
+
+  $scope.toggleLimiter = function() {
+    $scope.options.limiter_enabled = !$scope.options.limiter_enabled;
+    $scope.updateGlobalEffects();
+  }
+
+  $scope.toggleItemLimiter = function(idx) {
+    $scope.files[idx].limiter_enabled = !$scope.files[idx].limiter_enabled;
+    // Whenever limiter is disabled, cut the makeup gain to zero for ear-safety...
+    if(!$scope.files[idx].limiter_enabled) {
+      $scope.files[idx].limiterMakeup = 0;
+    }
+    $scope.updateGlobalEffects();
+  }
+
+  $scope.togglePreviewSamplerate = function() {
+    $scope.options.previewSamplerate = !$scope.options.previewSamplerate;
+  }
+
+  $scope.togglePreviewBitrate = function() {
+    $scope.options.preview8bit = !$scope.options.preview8bit;
+  }
+
+  $scope.toggleTruncateFilenames = function() {
+    $scope.options.truncateFilenames = !$scope.options.truncateFilenames;
+
+  }
+
+  $scope.toggleSaveWav = function() {
+    $scope.options.saveWav = !$scope.options.saveWav;
+
+  }
+
+  $scope.toggleCreateMod = function() {
+    $scope.options.createMod = !$scope.options.createMod;
+  }
+
+  $scope.toggleLongSampleSupport = function() {
+    $scope.options.longSampleSupport = !$scope.options.longSampleSupport;
+  }
+
+  $scope.toggleOutputToSource = function() {
+    $scope.options.outputToSource = !$scope.options.outputToSource;
+  }
+
 
   var toLin = function(value, width) {
     var minp = 0;
@@ -926,8 +1381,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   }
 
   var drawFilters = function(i) {
-    $scope.files[i].filterLo.frequency.setValueAtTime($scope.files[i].lowpassfrequency, audioContext.currentTime);
-    $scope.files[i].filterHi.frequency.setValueAtTime($scope.files[i].highpassfrequency, audioContext.currentTime);
+    filterLo.frequency.setValueAtTime($scope.files[$scope.selectedItem].lowpassfrequency, audioContext.currentTime);
+    filterHi.frequency.setValueAtTime($scope.files[$scope.selectedItem].highpassfrequency, audioContext.currentTime);
 
     // Test - draw on canvas
     var cnv = $scope.files[i].filtercanvas;
@@ -950,72 +1405,49 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     ctx.fill();
   }
 
-  /*
-  $scope.updateItemEffects = function(idx) {
-    console.log("Updating item effets for: " + idx);
-    if($scope.files) {
-        for (var i in $scope.files) {
-          drawFilters(i);
-        }
-    }
-    // Notify loading, decoding and drawing complete?
-    if($scope.loading) {
-        $scope.loading = false;
-        $scope.$apply();
-    }
-
-    updateGlobalEffects();
-
-    return 1;
-  }
-  */
 
   $scope.updateGlobalEffects = function() {
     console.log("Updating global effects");
-    for (var f in $scope.files) {
 
-      drawFilters(f);
+    $scope.options.samplerate = $scope.ptnotes[$scope.options.ptnote];
 
-      if($scope.files[f].info.channelcount > 1) {
+    // update any graph rerouting
 
-        var leftGainLevel = 0
-        var rightGainLevel = 0;
-
-        if($scope.files[f].mixdown == '-') {
-          leftGainLevel = 0.5;
-          rightGainLevel = 0.5;
-        } else if($scope.files[f].mixdown == '1') {
-          leftGainLevel = 1;
-          rightGainLevel = 0;
-        } else if($scope.files[f].mixdown == '2') {
-          leftGainLevel = 0;
-          rightGainLevel = 1;
-        }
-
-        $scope.files[f].leftGain.gain.setValueAtTime(leftGainLevel, audioContext.currentTime);
-        $scope.files[f].rightGain.gain.setValueAtTime(rightGainLevel, audioContext.currentTime);
-      }
-
-      if($scope.options.preview8bit) {
-          bitcrushNode.bitDepth = 8
-      } else {
-          bitcrushNode.bitDepth = 16
-      }
-
-      if($scope.options.previewSamplerate) {
-          bitcrushNode.frequency = $scope.files[$scope.selectedItem].samplerate.map(0, 44100, 0, 1);
-      } else {
-          bitcrushNode.frequency = 1
-      }
-
-      $scope.updateInfo(f);
+    if($scope.options.limiter_enabled) {
+      previewInputNode.disconnect();
+      hardlimiter.disconnect();
+      previewInputNode.connect(hardlimiter);
+      hardlimiter.connect(limiterMakeup);
+    } else {
+      // Make the makeup gain available even when the limiter's off, to offer a gain boost
+      // that's still independent of playback volume (the normalisation might not always be enough,
+      // e.g. if there's a rogue spike that's triggering the peak limit.)
+      hardlimiter.disconnect();
+      previewInputNode.disconnect()
+      previewInputNode.connect(limiterMakeup);
     }
 
+    for (var f in $scope.files) {
+      drawFilters(f);
+      $scope.files[f].samplerate = $scope.ptnotes[$scope.files[f].ptnote];
+      $scope.updateInfo(f);
 
 
-      volumeGain.gain.setValueAtTime($scope.options.playbackvolume/100, audioContext.currentTime);
+
+    }
+
+    if($scope.files && $scope.files.length > 0) {
+      hardlimiter.threshold.setValueAtTime($scope.files[$scope.selectedItem].limiterThresh, audioContext.currentTime);
+      limiterMakeup.gain.setValueAtTime(1+$scope.files[$scope.selectedItem].limiterMakeup/100, audioContext.currentTime);
+    }
+
+    volumeGain.gain.setValueAtTime($scope.options.playbackvolume/100, audioContext.currentTime);
+
 
   }
+
+
+
 
   $scope.updateFilesizeWarnings = function() {
 
@@ -1026,98 +1458,328 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     // Cache the previously selected item, get the newly selected item
     var prevSelected = $scope.selectedItem;
     $scope.selectedItem = i;
-
-    // If Preview sample rate is enabled, force monotimbral playback (one sample at a time).
-    // If not, go nuts!
-    if($scope.options.previewSamplerate) {
-        if(!$scope.files[prevSelected].player.paused) {
-          $scope.files[prevSelected].player.pause();
-          $scope.playerControlRestart(i);
-        }
-        bitcrushNode.frequency = $scope.files[$scope.selectedItem].samplerate.map(0, 44100, 0, 1);
-    } else {
-      bitcrushNode.frequency = 1
-    }
-
   }
+
+  function handleQwertyNote(freq, notenum) {
+
+    // https://books.google.co.uk/books?id=6U7Y1gCi-5IC&pg=PA31&lpg=PA31&dq=%22playbackrate%22+%22pitch%22+%22frequency%22&source=bl&ots=ioLwDoKDS_&sig=ACfU3U2oF6scHuXWaTgjmTM4CXl5vDyV3g&hl=en&sa=X&ved=2ahUKEwizqse7n6jpAhUNTBUIHWGQC6AQ6AEwAXoECAoQAQ#v=onepage&q=%22playbackrate%22%20%22pitch%22%20%22frequency%22&f=false
+
+    //incoming note is relative to semitones where 0 * 100 detune is original pitch.
+    // So PT note is always original pitch, because after resampling you want to hear
+    // the original pitch when you play that note! We don't need the Amiga sampling rate
+    // for PT note, but we do need the note number.
+
+    var inSemitone = notenum - $scope.keyboardNotes.indexOf($scope.files[$scope.selectedItem].ptnote);
+
+    var semitoneRatio = Math.pow(2, 1/12);
+    globalPlaybackRate = Math.pow(semitoneRatio, inSemitone);
+    //playbackDetuneValue = inSemitone * 100;
+
+    constructBufferPlayer($scope.selectedItem);
+  }
+
+
 
   window.addEventListener('keydown', function(e) {
     console.log("Key: " + e.keyCode);
 
+    var modTitleInput = document.getElementById('mod_title_input');
+    var outputDirInput = document.getElementById('outputDirTextInput');
+    var modTitleIsFocused = (document.activeElement === modTitleInput);
+    var outputInputIsFocused = (document.activeElement === outputDirInput);
     // Right arrow: 39
     // Left arrow: 37
+    if(modTitleIsFocused || outputInputIsFocused) {
+
+    } else {
+      if(e.repeat) {
+
+      } else {
+        if(e.keyCode == 8) {
+          // backspace: remove current item
+          //$scope.removeFile($scope.selectedItem);
+          //$scope.$apply();
+        }
+
+        if(e.keyCode === 39) {
+          //right arrow - increment PT note
+          // not sure how to do this the easy way, can't be arsed to do it the hard way
+        }
+
+        if(e.keyCode === 37) {
+          //left arrow - decrement PT note
+          // not sure how to do this the easy way, can't be arsed to do it the hard way
+        }
+
+        if(e.keyCode === 13) {
+          // Return/Enter - convert the currently selected item
+          //$scope.processItem($scope.selectedItem, null)
+        }
 
 
-    if(e.keyCode === 66) {
-      // B = 'both'
-      $scope.files[$scope.selectedItem].mixdown = '-';
-      $scope.$apply();
-      $scope.updateGlobalEffects();
-    }
-    if(e.keyCode === 76) {
-      // L = 'left'
-      $scope.files[$scope.selectedItem].mixdown = '1';
-      $scope.$apply();
-      $scope.updateGlobalEffects();
-    }
-    if(e.keyCode === 82) {
-      // R = 'right'
-      $scope.files[$scope.selectedItem].mixdown = '2';
-      $scope.$apply();
-      $scope.updateGlobalEffects();
-    }
+        if(e.keyCode === 40) {
+          if($scope.files && $scope.selectedItem < $scope.files.length-1) {
+            $scope.itemSelected($scope.selectedItem+1);
+            $scope.$apply();
+            e.preventDefault()
+          }
 
-    if(e.keyCode == 8) {
-      // backspace: remove current item
-      $scope.removeFile($scope.selectedItem);
-      $scope.$apply();
-    }
+        }
 
-    if(e.keyCode === 39) {
-      //right arrow - increment PT note
-      // not sure how to do this the easy way, can't be arsed to do it the hard way
-    }
+        if(e.keyCode === 38) {
+          if($scope.files && $scope.selectedItem-1 >= 0) {
+            $scope.itemSelected($scope.selectedItem-1);
+            $scope.$apply();
+            e.preventDefault();
+          }
 
-    if(e.keyCode === 37) {
-      //left arrow - decrement PT note
-      // not sure how to do this the easy way, can't be arsed to do it the hard way
-    }
+        }
 
-    if(e.keyCode === 13) {
-      // Return/Enter - convert the currently selected item
-      $scope.processItem($scope.selectedItem, null)
-    }
+        if(e.keyCode === 32) {
+          // Space bar. Plays item at last-used note offset. Maybe it should always play at target PT note?
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf($scope.files[$scope.selectedItem].ptnote));
+          e.preventDefault();
+        }
 
-    if(e.keyCode === 27) {
-      for(var i in $scope.files) {
-        $scope.files[i].player.pause();
+        if(e.keyCode === 116) {
+          // Refresh window (F5) but non-global!
+          getCurrentWindow().reload();
+          e.preventDefault();
+        }
+
+        // QWERTYTIME!
+
+
+
+        if(e.keyCode === 220) {
+          // \ - kill note
+          destroyBufferPlayer($scope.selectedItem);
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 90) {
+          // z - lower octave C
+          var note = 'C-' + (1 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 83) {
+          // s - lower octave C#
+          var note = 'C#' + (1 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 88) {
+          // x - lower octave D
+          var note = 'D-' + (1 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 68) {
+          // d - lower octave D#
+          var note = 'D#' + (1 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 67) {
+          // c - lower octave E
+          var note = 'E-' + (1 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 86) {
+          // v - lower octave F
+          var note = 'F-' + (1 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 71) {
+          // g - lower octave F#
+          var note = 'F#' + (1 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 66) {
+          // b - lower octave G
+          var note = 'G-' + (1 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 72) {
+          // h - lower octave G#
+          var note = 'G#' + (1 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 78) {
+          // n - lower octave A
+          var note = 'A-' + (1 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 74) {
+          // j - lower octave Bb
+          var note = 'A#' + (1 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 77) {
+          // m - lower octave B
+          var note = 'B-' + (1 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 188) {
+          // < - Upper octave C
+          var note = 'C-' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 76) {
+          // l - Upper octave C#
+          var note = 'C#' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 190) {
+          // > - Upper octave D
+          var note = 'D-' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 186) {
+          // ; - Upper octave D#
+          var note = 'D#' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 191) {
+          // / - Upper octave E
+          var note = 'E-' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 81) {
+          // q - Upper octave C
+          var note = 'C-' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 50) {
+          // 2 - Upper octave C#
+          var note = 'C#' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 87) {
+          // w - Upper octave D
+          var note = 'D-' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 51) {
+          // 3 - Upper octave D#
+          var note = 'D#' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 69) {
+          // e - Upper octave E
+          var note = 'E-' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 82) {
+          // r - Upper octave F
+          var note = 'F-' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 53) {
+          // 5 - Upper octave F#
+          var note = 'F#' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 84) {
+          // t - Upper octave G
+          var note = 'G-' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 54) {
+          // 6 - Upper octave G#
+          var note = 'G#' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 89) {
+          // y - Upper octave A
+          var note = 'A-' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 55) {
+          // 7 - Upper octave Bb
+          var note = 'A#' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 85) {
+          // u - Upper octave B
+          var note = 'B-' + (2 + inputOctave)
+          handleQwertyNote($scope.ptnotes[note], $scope.keyboardNotes.indexOf(note));
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 112) {
+          // F1 Set lower octave:
+          inputOctave = 0;
+          e.preventDefault();
+        }
+
+        if(e.keyCode === 113) {
+          // F2 Set upper octave:
+          inputOctave = 1;
+          e.preventDefault();
+        }
+
       }
-      e.preventDefault();
     }
 
-    if(e.keyCode === 40) {
-      if($scope.files && $scope.selectedItem < $scope.files.length-1) {
-        $scope.itemSelected($scope.selectedItem+1);
-        $scope.$apply();
-        e.preventDefault()
-      }
-
-    }
-
-    if(e.keyCode === 38) {
-      if($scope.files && $scope.selectedItem-1 >= 0) {
-        $scope.itemSelected($scope.selectedItem-1);
-        $scope.$apply();
-        e.preventDefault();
-      }
-
-    }
-
-    if(e.keyCode === 32) {
-      $scope.playerControlRestart($scope.selectedItem);
-      e.preventDefault();
-    }
   }, true);
+
+  window.addEventListener('keyup', function(e) {
+
+  }, true)
 
 })
 .directive('scrollIf', function() {

@@ -8,23 +8,20 @@
     "make": "electron-forge make"
   },
   "devDependencies": {
-
     "babel-plugin-transform-async-to-generator": "^6.24.1",
     "babel-preset-env": "^1.7.0",
     "babel-preset-react": "^6.24.1",
     "electron-forge": "^5.2.4",
-    "electron-prebuilt-compile": "4.0.0"
+    "electron-prebuilt-compile": "8.2.0"
   },
   "dependencies": {
-    "@fortawesome/fontawesome-free": "^5.8.1",
     "@electron-forge/plugin-webpack": "^6.0.0-beta.34",
+    "@fortawesome/fontawesome-free": "^5.8.1",
     "bitcrusher": "^0.3.0",
-    "dataurl": "^0.1.0",
     "electron-compile": "^6.4.4",
     "electron-packager": "^13.1.1",
     "electron-squirrel-startup": "^1.0.0",
-    "nedb": "^1.8.0",
-    "sox.js": "^2.1.0"
+    "uint64be": "^3.0.0"
   },
   "config": {
     "forge": "./forge.config.js"

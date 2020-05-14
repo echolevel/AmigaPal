@@ -26,18 +26,19 @@ function createWindow() {
 
   win = new BrowserWindow({
     width: 600,
-    height: 860,
+    height: 885,
     minWidth: 600,
     maxWidth: 600,
-    minHeight: 860,
-    //maxHeight: 830,
+    minHeight: 885,
+    maxHeight: 885,
     frame: false,
     titleBarStyle: 'hidden',
     icon: path.resolve(__dirname, 'res/Icon.icns'),
     webPreferences: {
-      webSecurity: false,
-      allowRunningInsecureContent: true,
-      nodeIntegration: true
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      nodeIntegration: true,
+      enableRemoteModule: true,
     }
     //,minHeight: 500
     //,maxWidth: 940
@@ -53,19 +54,21 @@ function createWindow() {
 
 
 
+  /*
   globalShortcut.register('f5', function() {
 		win.reload()
 	})
 	globalShortcut.register('CommandOrControl+R', function() {
 		win.reload()
 	})
+  */
 
   globalShortcut.register('f12', function() {
-    win.webContents.openDevTools({mode: 'bottom'});
+    //win.webContents.openDevTools({mode: 'bottom'});
   })
 
   globalShortcut.register('CommandOrControl+Shift+I', function() {
-    win.webContents.openDevTools({mode: 'bottom'});
+    win.webContents.openDevTools({mode: 'detach'});
   })
 
 
