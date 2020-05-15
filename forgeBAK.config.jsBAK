@@ -3,19 +3,11 @@ const path = require('path');
 
 module.exports = {
     forge: {
-      make_targets: {
-        win32: [
-          //"squirrel"
-          "zip"
-        ],
-        darwin: [
-          "zip"
-        ],
-        linux: [
-          "deb",
-          "rpm"
-        ]
-      },
+      makers: [
+        {
+        name: '@electron-forge/maker-zip'
+        }
+      ],
       electronPackagerConfig: {
         "icon": path.resolve(__dirname, 'src/res/icon.ico'),
         "packageManager": false,

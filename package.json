@@ -8,22 +8,47 @@
     "make": "electron-forge make"
   },
   "devDependencies": {
+    "@electron-forge/cli": "6.0.0-beta.50",
+    "@electron-forge/maker-deb": "6.0.0-beta.50",
+    "@electron-forge/maker-rpm": "6.0.0-beta.50",
+    "@electron-forge/maker-squirrel": "6.0.0-beta.50",
+    "@electron-forge/maker-zip": "6.0.0-beta.50",
     "babel-plugin-transform-async-to-generator": "^6.24.1",
     "babel-preset-env": "^1.7.0",
     "babel-preset-react": "^6.24.1",
-    "electron-forge": "^5.2.4",
     "electron-prebuilt-compile": "8.2.0"
   },
   "dependencies": {
     "@electron-forge/plugin-webpack": "^6.0.0-beta.34",
     "@fortawesome/fontawesome-free": "^5.8.1",
-    "bitcrusher": "^0.3.0",
     "electron-compile": "^6.4.4",
-    "electron-packager": "^13.1.1",
-    "electron-squirrel-startup": "^1.0.0",
-    "uint64be": "^3.0.0"
+    "electron-squirrel-startup": "^1.0.0"
   },
   "config": {
-    "forge": "./forge.config.js"
+    "forge": {
+      "packagerConfig": {},
+      "makers": [
+        {
+          "name": "@electron-forge/maker-squirrel",
+          "config": {
+            "name": "amigapal"
+          }
+        },
+        {
+          "name": "@electron-forge/maker-zip",
+          "platforms": [
+            "darwin"
+          ]
+        },
+        {
+          "name": "@electron-forge/maker-deb",
+          "config": {}
+        },
+        {
+          "name": "@electron-forge/maker-rpm",
+          "config": {}
+        }
+      ]
+    }
   }
 }
