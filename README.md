@@ -9,7 +9,7 @@ A desktop app for preparing and converting 8bit samples to use in Protracker on 
 Features:
 ---------
 
-* Built with Electron, so should run on MacOS, Windows and Linux
+* Built with Electron, so should run on MacOS, Windows and Linux.
 * Drag and drop files to load, or load an entire directory for batch conversion to 8SVX or WAV
 * Supports PCM WAV, MP3, AAC, OGG, and FLAC as source audio files
 * Waveform display and preview player for selecting time ranges to which the output will be trimmed
@@ -61,6 +61,8 @@ Changelog:
 
 Known Bugs / To Do:
 ----------
+
+* I have managed to get the latest version (v0.0.7-beta.1) to run on MacOS Sierra, but when I package it with electron-forge it crashes instantly after the app is launched without any kind of useful error log. I can't say when I'll have time to bug-hunt this, but if anyone else is able to package for MacOS or Linux please let me know. Previous versions of MacOS should still work fine, although you'll need to set up sox as before (e.g. install with brew and point AmigaPal at /usr/local/bin or wherever).
 
 * If it doesn't make the app too sluggish, it'd be nice for the waveform display to reflect limiter/gain changes and give an impression of how the sample will look in Protracker after conversion, in terms of transients and dynamics.
 
