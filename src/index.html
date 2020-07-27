@@ -601,7 +601,8 @@
               </div>
 
               <div class="col-12 text-right input-group input-group-sm">
-
+                <canvas style="position: absolute; width: 130px; height: 56px; top: -10px; left: 144px;" id="spectrum-canvas">
+                </canvas>
                 <div class="col-8 text-left" style="padding-top: 5px; margin-bottom: 5px; padding-left: 0px;">
                   <strong>STATUS: <span style="color: #ff99cc;">{{statusmsg}}</span></strong>
                 </div>
@@ -759,8 +760,6 @@
                   <rzslider id="trimslider-{{$index}}"style="width: 420px;" class="custom-slider" rz-slider-model="file.trimstart" rz-slider-high="file.trimend" rz-slider-options="file.trimoptions"></rzslider>
                   <canvas style="position: absolute; width: 420px; height: 60px; top: 7px; left: 0;" id="wform-canvas-{{$index}}">
                   </canvas>
-                  <canvas style="position: absolute; width: 420px; height: 60px; top: 7px; left: 0;" id="bytelimit-canvas-{{$index}}">
-                  </canvas>
                   <canvas style="position: absolute; width: 420px; height: 60px; top: 7px; left: 0;" id="spectrum-canvas-{{$index}}">
                   </canvas>
                   <canvas style="position: absolute; width: 420px; height: 60px; top: 7px; left: 0;" id="filter-canvas-{{$index}}">
@@ -818,12 +817,12 @@
                   <div class="row">
                     <label class="col-3 col-form-label" style="padding-left: 0 !important; padding-right: 0 !important;">Thrsh: {{file.limiterThresh}}</label>
                     <div class="col-3" style="padding-left: 0 !important; padding-right: 0 !important">
-                      <rzslider  class="custom-slider2" rz-slider-options="{ floor: -60, ceil: 0 }" rz-slider-model="file.limiterThresh"></rzslider>
+                      <rzslider  class="custom-slider2" rz-slider-options="{ floor: -60, ceil: 0, onChange: updateGlobalEffects }" rz-slider-model="file.limiterThresh"></rzslider>
                     </div>
 
                     <label class="col-3 col-form-label" style="padding-right: 0 !important;">Gn: {{file.limiterMakeup/4 | number: 0}}</label>
                     <div class="col-3" style="padding-right: 0 !important; padding-left: 0 !important">
-                      <rzslider  class="custom-slider2" rz-slider-options="{ floor: 0, ceil: 400 }" rz-slider-model="file.limiterMakeup"></rzslider>
+                      <rzslider  class="custom-slider2" rz-slider-options="{ floor: 0, ceil: 400, onChange: updateGlobalEffects }" rz-slider-model="file.limiterMakeup"></rzslider>
                     </div>
                   </div>
 

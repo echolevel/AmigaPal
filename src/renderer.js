@@ -290,7 +290,11 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
             if($scope.filetypes.indexOf(fileExt.toUpperCase()) > -1) {
               var promise = prepItem(files[0].path + pathslash + path);
               promise.then(function(tmpfile) {
-                createDecodedItem(tmpfile);
+                createDecodedItem(tmpfile).then(() => {
+                  console.log("created decoded item");
+                }).catch((err) => {
+                  console.log(err);
+                });
               })
             } else {
               console.log("Nope, not loading ", fileExt);
@@ -306,7 +310,11 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           promise.then(function(tmpfile) {
             console.log("Promise returned, did a thing");
             console.log(tmpfile);
-            createDecodedItem(tmpfile);
+            createDecodedItem(tmpfile).then(() => {
+              console.log("created decoded item");
+            }).catch((err) => {
+              console.log(err);
+            });
           })
         } else {
           console.log("Nope, not loading ", fileExt);
@@ -414,7 +422,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     .then(result => {
       if(result.indexOf('error') < 0) {
         console.log("all files converted");
-        if($scope.options.createMod && !$scope.options.saveWav) {
+        if($scope.options.createMod) {
           $scope.writeMod();
         } else {
           $scope.statusmsg = "Samples converted!";
@@ -445,7 +453,6 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       $scope.options.limiter_enabled = $scope.files[idx].limiter_enabled;
       source.connect(previewInputNode);
 
-      outputmerger.connect($scope.files[idx].spectrum);
 
       //$scope.files[idx].spectrum.connect(bitcrushNode);
 
@@ -467,6 +474,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
       source.addEventListener('ended', () => {
         //destroyBufferPlayer(idx);
+        window.cancelAnimationFrame($scope.drawVisual);
       })
 
       $scope.files[idx].progressTimer = setInterval(() => {
@@ -519,6 +527,9 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
 
   function createDecodedItem(tmpfile) {
+
+    return new Promise((resolve, reject) => {
+
       $scope.files.push(tmpfile);
       var i = $scope.files.length - 1;
       $scope.selectedItem = i;
@@ -544,16 +555,33 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
               //console.log(data);
               // DO STUFF
               $scope.files[i].buffer = buffer;
+
+              // Do a normalisation pass of the source before any processing. Usually you wouldn't
+              // want this in a 'proper' audio editor, but when the target is 8bit audio there's
+              // basically no reason not to maximise SNR at this stage. Attenuating later in Protracker
+              // is always better than having to amplify a lower-resolution sample.
+              var sourceData = buffer.getChannelData(0);
+              let sourcepeak;
+              // First get the peak (remember: this audiodata is 32bit float! -1 to 1 range!)
+              sourcepeak = sourceData.reduce(function(a,b) {
+                return Math.max(a,b);
+              })
+              // Now normalise it:
+              for (var b in sourceData) {
+                sourceData[b] = sourceData[b] * 1/sourcepeak;
+                if(sourceData[b] > 1) {
+                  sourceData[b] = 1;
+                } else if(sourceData[b] < -1) {
+                  sourceData[b] = -1;
+                }
+              }
+
+              buffer.copyToChannel(sourceData, 0, 0);
+              $scope.files[i].buffer = buffer;
+              $scope.files[i].waveformBuffer = buffer;
+
               $scope.files[i].realtimeDuration = buffer.duration * (1/globalPlaybackRate);
-              $scope.files[i].displaybuffer = [0];
               $scope.files[i].filtercanvas = document.getElementById('filter-canvas-' + i);
-              $scope.files[i].bytelimitcanvas = document.getElementById('bytelimit-canvas-' + i);
-              $scope.files[i].spectrumcanvas = document.getElementById('spectrum-canvas-' + i);
-              $scope.files[i].spectrum = audioContext.createAnalyser();
-              $scope.files[i].spectrum.fftSize= 128;
-              $scope.files[i].spectrumData = new Uint8Array($scope.files[i].spectrum.frequencyBinCount);
-              $scope.files[i].spectrumCtx = $scope.files[i].spectrumcanvas.getContext('2d');
-              $scope.files[i].bytelimitCtx = $scope.files[i].bytelimitcanvas.getContext('2d');
 
               // soxi replacement stuff:
               $scope.files[i].filetype = $scope.files[i].fullpath.substr(3).toUpperCase();
@@ -568,14 +596,10 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
               $scope.files[i].outputsize = 8 * $scope.options.samplerate * buffer.duration;
               $scope.files[i].limiter_enabled = false;
 
-
-
-
               //$scope.files[i].spectrum.connect(bitcrushNode);
 
               //$scope.files[i].player.isPlaying = false;
               //$scope.files[i].player.unplayed = true;
-
 
 
               // Set PT note to whatever the current global note is
@@ -585,61 +609,10 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
               // Fix the trimoptions ID
               $scope.files[i].trimoptions.id = i;
 
-              // This is a bit of a CPU-killer, needless to say. And it's completely unnecessary.
-              // But if you really want it, uncomment $scope.files[i].draw(); below!
-              $scope.files[i].draw = function() {
-                  //draw some spectrum analyser bars
-                  $scope.files[i].spectrumCtx.clearRect(0, 0, $scope.files[i].spectrumcanvas.width, $scope.files[i].spectrumcanvas.height);
-                  var drawVisual = requestAnimationFrame($scope.files[i].draw);
-                  $scope.files[i].spectrum.getByteFrequencyData($scope.files[i].spectrumData);
-                  $scope.files[i].spectrumCtx.fillStyle = 'rgb(0, 0, 0, 0.2)';
-                  $scope.files[i].spectrumCtx.fillRect(0, 0, $scope.files[i].spectrumcanvas.width, $scope.files[i].spectrumcanvas.height)
-                  var barWidth = ($scope.files[i].spectrumcanvas.width / $scope.files[i].spectrum.frequencyBinCount) * 2.5;
-                  var barHeight;
-                  var x = 0;
-                  for (var v = 0; v < $scope.files[i].spectrum.frequencyBinCount; v++) {
-                    barHeight = $scope.files[i].spectrumData[v]/2;
-                    $scope.files[i].spectrumCtx.fillStyle = 'rgb(' + (barHeight+128) + ' ,'+(barHeight+128)+','+(barHeight+128)+', 0.6)';
-                    $scope.files[i].spectrumCtx.fillRect(x, $scope.files[i].spectrumcanvas.height-barHeight/2, barWidth, barHeight);
-                    x += barWidth + 1;
-                  }
-              }
+              drawWaveform(i);
 
-              // Get the item's canvas so we can draw the waveform onto it
-              $scope.files[i].canvas = document.getElementById('wform-canvas-' + i);
-              var context = $scope.files[i].canvas.getContext('2d');
-              var data = buffer.getChannelData(0);
-              // Work out a sensible height and width for the waveform chunks relative to canvas dimensions
-              var step = Math.ceil(data.length / $scope.files[i].canvas.width);
-              var amp = $scope.files[i].canvas.height / 2;
-              // Find the peak (highest-amplitude sample), then normalise the waveform to that peak value. This
-              // means that quiet samples can be visualised better; the sox process does peak-normalisation
-              // anyway, regardless of what we do here.
-              var peak = data.reduce(function(a, b) {
-                return Math.max(a, b)
-              })
-              var normed = [];
-              for (var b in data) {
-                normed[b] = data[b] * 1/peak;
-              }
-              // Draw the waveform
-              for (var k = 0; k < $scope.files[i].canvas.width; k++) {
-                var min = 1.0;
-                var max = -1.0;
-                for (var j = 0; j < step; j++) {
-                  var datum = normed[k * step + j];
-                  if (datum < min) min = datum;
-                  if (datum > max) max = datum;
-                }
-                //context.fillStyle = "#7cca8f";
-                //context.fillStyle = "#37946e";
-                context.fillStyle = "#ff99cc";
-                context.fillRect(k, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
-              }
-
-
-              $scope.updateGlobalEffects();
               $scope.$apply();
+              resolve();
             }).catch((err) => {
               console.log("Couldn't read the audio data")
               console.log(err)
@@ -651,6 +624,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
                 $scope.statusmsg = "All is well";
               }, 5000)
               $scope.$apply();
+              throw err;
             })
           }
 
@@ -659,77 +633,93 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
       }) //fs.readFile end
 
-      //drawAudio($scope.files.length - 1);
+    })
+
+
+
 
   }
 
 
-
-  var drawAudio = function drawAudio(i) {
-    // Nothing we do here affects playback audio or the exported sample - display purposes only.
-    fs.readFile($scope.files[i].fullpath, function(err, data) {
-      //$scope.loading = true;
-      if(data && !err) {
-        console.log("loaded successfully...");
-        var file = new window.Blob([data]);
-        var abuffer;
-        var fileReader = new FileReader();
-        // Set up what happens after the file's been successfully read
-        fileReader.onload = function(event) {
-          // Read the input file to audio data (via a blob)
-          abuffer = event.target.result;
-          audioContext.decodeAudioData(abuffer, function() {
-            console.log("audio decoded");
-            $scope.files[i].warningmessage = "";
-            $scope.$apply();
-          }, function() {
-            console.log("Audio not decoded, but can still be converted");
-            $scope.files[i].warningmessage = "Preview unavailable but sample can still be converted to 8SVX";
-            $scope.$apply();
-          }).then(function(buffer) {
-            var audioBuffer = buffer;
-            // Get the item's canvas so we can draw the waveform onto it
-            $scope.files[i].canvas = document.getElementById('wform-canvas-' + i);
-            var context = $scope.files[i].canvas.getContext('2d');
-            var data = buffer.getChannelData(0);
-            // Work out a sensible height and width for the waveform chunks relative to canvas dimensions
-            var step = Math.ceil(data.length / $scope.files[i].canvas.width);
-            var amp = $scope.files[i].canvas.height / 2;
-            // Find the peak (highest-amplitude sample), then normalise the waveform to that peak value. This
-            // means that quiet samples can be visualised better; the sox process does peak-normalisation
-            // anyway, regardless of what we do here.
-            var peak = data.reduce(function(a, b) {
-              return Math.max(a, b)
-            })
-            var normed = [];
-            for (var b in data) {
-              normed[b] = data[b] * 1/peak;
-            }
-            // Draw the waveform
-            for (var k = 0; k < $scope.files[i].canvas.width; k++) {
-              var min = 1.0;
-              var max = -1.0;
-              for (var j = 0; j < step; j++) {
-                var datum = normed[k * step + j];
-                if (datum < min) min = datum;
-                if (datum > max) max = datum;
-              }
-              //context.fillStyle = "#7cca8f";
-              context.fillStyle = "#37946e";
-              context.fillRect(k, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
-            }
-            // Try deleting the buffer now that the waveform's been drawn
-            // to canvas. Hopefully save some memory.
-            buffer = null;
-          })
-        }
-        // Do the actual file-read
-        fileReader.readAsArrayBuffer(file);
+  var drawWaveform = function(i) {
+    // Get the item's canvas so we can draw the waveform onto it
+    // TO DO - I split this out in case I wanted to be able to update the
+    // waveform display on the fly, e.g. to reflect limiter/gain settings, but
+    // I've not yet worked out a method that's both efficient and accurate.
+    var canvas = document.getElementById('wform-canvas-' + i);
+    var context = canvas.getContext('2d');
+    var data = $scope.files[i].waveformBuffer.getChannelData(0);
+    // Work out a sensible height and width for the waveform chunks relative to canvas dimensions
+    var step = Math.ceil(data.length / canvas.width);
+    var amp = canvas.height / 2;
+    // Draw the waveform
+    for (var k = 0; k < canvas.width; k++) {
+      var min = 1.0;
+      var max = -1.0;
+      for (var j = 0; j < step; j++) {
+        var datum = data[k * step + j];
+        if (datum < min) min = datum;
+        if (datum > max) max = datum;
       }
-    })
+      context.fillStyle = "#ff99cc";
+      context.fillRect(k, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
+    }
+  }
 
-  };
 
+  var drawAnalyzer = function() {
+
+    var canvas = document.getElementById('spectrum-canvas');
+    var WIDTH = canvas.width;
+    var HEIGHT = canvas.height;
+    var canvasCtx = canvas.getContext('2d');
+    var analyser = audioContext.createAnalyser();
+    volumeGain.connect(analyser);
+
+    analyser.fftSize= 1024;
+    var bufferLength = analyser.fftSize;
+    var dataArray = new Float32Array(bufferLength);
+
+    canvasCtx.clearRect(0, 0, WIDTH, HEIGHT);
+
+    function draw() {
+
+      $scope.drawVisual = requestAnimationFrame(draw);
+
+      analyser.getFloatTimeDomainData(dataArray);
+
+      canvasCtx.fillStyle = 'rgb(41,44,52)';
+      canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
+
+      canvasCtx.lineWidth = 2;
+      canvasCtx.strokeStyle = 'rgb(249, 150, 202)';
+
+      canvasCtx.beginPath();
+
+      var sliceWidth = WIDTH * 1.0 / bufferLength;
+      var x = 0;
+
+      for(var i = 0; i < bufferLength; i++) {
+
+        var v = dataArray[i] * 200.0;
+        var y = HEIGHT/2 + v;
+
+        if(i === 0) {
+          canvasCtx.moveTo(x, y);
+        } else {
+          canvasCtx.lineTo(x, y);
+        }
+
+        x += sliceWidth;
+      }
+
+      canvasCtx.lineTo(canvas.width, canvas.height/2);
+      canvasCtx.stroke();
+    };
+
+    draw();
+
+  }
 
 
   $scope.processItem = function (idx, cb) {
@@ -829,31 +819,11 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           var outData = processed.buffer.getChannelData(0);
 
 
-
-
-          // Peak Normalise or normalise it according to gain reduction slider before we convert to 8bit
-
           let peak;
-
-          // TO DO - THIS IS A FUCKING SHAMBLES
-
           // First get the peak (remember: this audiodata is 32bit float! -1 to 1 range!)
           peak = outData.reduce(function(a,b) {
             return Math.max(a,b);
           })
-          console.log("Initial peak: " + peak);
-          // Then if the normalisation slider overrides that peak, override it:
-          /*
-          let normaliseValue = $scope.options.outputGain;
-          normaliseValue = normaliseValue.map(-42, 0, 0, 1)
-          console.log("mapped normaliseValue: " + normaliseValue);
-          if($scope.options.outputGain < 0) {
-            peak += normaliseValue;
-          }
-          console.log("new peak: " + peak);
-          */
-
-
           // Now normalise it:
           for (var b in outData) {
             outData[b] = outData[b] * 1/peak;
@@ -863,7 +833,6 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
               outData[b] = -1;
             }
           }
-
 
           // Convert from 32bit float to 8bit and clamp
           var outData8bitArr = [];
@@ -877,6 +846,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
               outData8bitArr[i] = -128;
             }
           }
+
+
           // Trimming any leading silence due to Web Audio offline context latency that we can't reliably calculate
           var startPos = 0;
           for(var s in outData8bitArr) {
@@ -1077,7 +1048,11 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
            promise.then(function(tmpfile) {
              console.log("Promise returned, did a thing");
              console.log(tmpfile);
-             createDecodedItem(tmpfile);
+             createDecodedItem(tmpfile).then(() => {
+               console.log("created decoded item");
+             }).catch((err) => {
+               console.log(err);
+             });
            })
          } else {
            console.log("Nope, not loading ", fileExt);
@@ -1133,6 +1108,10 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           console.log("loaded successfully...");
 
             // Now get a test sample:
+
+            // TO DO: this is no longer necessary - a hangover from sox. I just need to
+            // abstract the processing chain and data buffer prep to a function that returns a promise,
+            // which can then write 8SVX, or WAV, MOD, or all, or whatever.
 
             function readConvertedFile(writtenpath) {
               return new Promise((resolve, reject) => {
@@ -1307,6 +1286,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   }, true);
 
 
+
   $scope.$on('ngRepeatFinished', function (ngRepeatFinishedEvent) {});
 
 
@@ -1427,14 +1407,17 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       previewInputNode.connect(limiterMakeup);
     }
 
-    for (var f in $scope.files) {
-      drawFilters(f);
-      $scope.files[f].samplerate = $scope.ptnotes[$scope.files[f].ptnote];
-      $scope.updateInfo(f);
-
-
-
+    if($scope.files.length > 0) {
+        for (var f in $scope.files) {
+          drawFilters(f);
+          $scope.files[f].samplerate = $scope.ptnotes[$scope.files[f].ptnote];
+          $scope.updateInfo(f);
+        }
     }
+
+
+    // update waveform display for selectedItem
+
 
     if($scope.files && $scope.files.length > 0) {
       hardlimiter.threshold.setValueAtTime($scope.files[$scope.selectedItem].limiterThresh, audioContext.currentTime);
@@ -1476,6 +1459,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     //playbackDetuneValue = inSemitone * 100;
 
     constructBufferPlayer($scope.selectedItem);
+    drawAnalyzer()
+
   }
 
 

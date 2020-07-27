@@ -79,6 +79,8 @@ to add it when packaging.
 Installation
 ------------
 
+Grab the latest release for your platform from the [releases page](https://github.com/echolevel/AmigaPal/releases) and unpack the zip wherever you like.
+
 **MacOS/Linux**
 
 As long as you've got SoX installed, and can find the path to the sox binary, you should be all set. The default path is /usr/local/bin. When I get a chance, I'll zip up a MacOS version to bring the MacOS release up to date with the latest Windows one.
