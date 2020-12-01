@@ -30,6 +30,10 @@ Features:
 Changelog:
 ----------
 
+**1st December 2020 -**
+* v0.0.7-beta.2 hopefully fixes the mysterious Windows 10 bug where dropping or loading multiple files
+caused them to be decoded badly (or not at all), followed by their item entries disappearing.
+
 **13th May 2020 -**
 * SoX is no longer a dependency! No more messing about with unreliable installation paths, environment variables or stdin/stdout. Now all file reading, signal processing, resampling, bit-reduction and file export is done natively in the app.
 * Migrating away from SoX means that what you hear in AmigaPal when previewing a sample is much closer to what you'll hear after exporting. Previously the preview system used vague approximations of the settings that were passed to SoX, but now the offline processing and export system uses exactly the same DSP chains as the preview system. Any further difference is due to your tracker's internal resampling algorithm or the Amiga's hardware.
