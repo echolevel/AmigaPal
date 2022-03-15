@@ -29,6 +29,19 @@ Features:
 
 Changelog:
 ----------
+**15th March 2022 -**
+* ‘Preview output’ now lets you hear almost exactly how the exported 8SVX/WAV file will sound. Previously the preview was quite a rough approximation; now it renders an output buffer using the current SR/filter/limiter settings every time you play a note, so you can do quick comparisons before deciding on the best compromise between quality and size.
+
+* When ‘Preview output’ is disabled, the original sample is always played dry - no filters or limiters. This reduces the variables when you’re trying to objectively compare the (presumably) high quality source sample with the lower quality output sample.
+
+* Since preview playback involves the non-realtime rendering of the requested note, any changes made to the lo/hi cut filters or the limiter won’t be heard until a new note is played.
+
+* In case it’s not obvious, importing gargantuan samples might involve commensurately long delays when playing preview notes! Having said that, previewing a short trim section only renders that section, so loading big samples in order to export short sections shouldn’t cause noticeable delays on a reasonably modern computer.
+
+* “Near total accuracy” is what I said in the commit message for this update… What does this mean? Previously I used some realtime DSP effects to create a preview playback buss: the lo/hi cut filters and the limiters (user-programmable and internal) were identical to those used on the non-realtime output rendering stage, but the bitdepth and sample reduction were faked in an…unsatisfactory way. Akira (aka FastRam, one of the PT-1210 team) asked me about the discontinuities (clicks’n’pops) in that mode which made quality comparisons difficult and it motivated me to do what I should’ve done ages ago and fix it. Now the preview playback buffer is fed by the exact same offline rendering process that does the file export, so you’re hearing the output bytes as close as possible to the way their target platforms will play them back. ‘As possible’ - so what I can’t emulate is e.g. the Amiga’s DAC stage and its inherent aliasing artefacts, or similar characteristics of other vintage systems and samplers, but I’ve done my best to get our 8bit output buffer back into WebAudio’s native 32bit float buffer in as harsh and unsanitised a way as I can :)
+
+* “Why are some samples, or sample sections, mega loud in the preview output?” - probably because they’ve been normalised as part of the output render. This will be especially noticeable if you trim to a quiet section within a generally louder sample; AmigaPal always aims to get the best SNR before doing any conversion, so if there’s any headroom available within your trim points, that section will be amplified just short of clipping. Bear in mind that this is NOT the same as maximisation, where hard limiting/compression is applied to destructively bring up the perceived level without clipping. You can do that with the Limiter :)
+* There's a slight inconsistency between playback durations depending on whether 'Preview output' is enabled. This is due to some latency in the non-preview chain not being compensated for. The preview duration, however, is the exact duration of the output file (give or take a single byte, if the output buffer has to be padding to the nearest even number of bytes). So rely on preview for getting your trim markers set right!
 
 **1st December 2020 -**
 * v0.0.7-beta.2 hopefully fixes the mysterious Windows 10 bug where dropping or loading multiple files
