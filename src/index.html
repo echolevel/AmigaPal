@@ -620,9 +620,9 @@
             <div class="form-group row" style="margin-top: 0px; margin-bottom: 0px">
 
               <div class="col-12 input-group input-group-sm btn-group">
-                <span class="input-group-addon"> <i class="fas fa-fw" ng-class="{ 'fa-check' : options.previewSamplerate, 'fa-times' : !options.previewSamplerate  }"></i> </span>
-                <button type="button" class="btn btn-sm btn-secondary btn-block btn-custom-toggle" ng-class="{ 'custom-toggle-inactive': !options.previewSamplerate}" ng-click="togglePreviewSamplerate();" style="line-height: 20px;">
-                  Preview samplerate
+                <span class="input-group-addon"> <i class="fas fa-fw" ng-class="{ 'fa-check' : options.previewOutput, 'fa-times' : !options.previewOutput  }"></i> </span>
+                <button type="button" class="btn btn-sm btn-secondary btn-block btn-custom-toggle" ng-class="{ 'custom-toggle-inactive': !options.previewOutput}" ng-click="togglePreviewOutput();" style="line-height: 20px;">
+                  Preview output
                 </button>
               </div>
 
@@ -842,7 +842,7 @@
                     <button type="button" class="btn btn-sm btn-secondary btn-block"  ng-click="removeFile($index);">
                       <i class="fas fa-fw fa-trash-alt"></i>
                     </button>
-                    <button type="button" class="btn btn-sm btn-secondary btn-block" style="margin-top: 0;" ng-click="processItem($index, null)">
+                    <button type="button" class="btn btn-sm btn-secondary btn-block" style="margin-top: 0;" ng-click="processItem(true, $index, null)">
                       <i class="fas fa-fw fa-random"></i>
                     </button>
                   </div>

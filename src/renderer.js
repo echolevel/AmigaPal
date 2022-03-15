@@ -134,11 +134,10 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
       outputGain: 0, // I'm calling this "-3dBFS", but who knows really. Basically this is for normalising below maximum 8bit amplitude in case there's clipping
       //lowpasscutoff: 10000,
       //highpasscutoff: 1,
-      preview8bit: false,
+      previewOutput: false,
       truncateFilenames: true,
       saveWav: false,
       truncateLimit: 8,
-      previewSamplerate: false,
       filesizeWarning: -1,
       draggable: true,
       bigFileSize: true,
@@ -154,6 +153,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     $scope.options = JSON.parse(localStorage.getItem('config'));
   }
 
+  // Bren 2022-03-15 - forcing this to false because of shenanigans
+  $scope.options.previewOutput = false;
 
   // Preview chain setup
 
@@ -161,6 +162,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     latencyHint: 'interactive' // This is default anyway
   });
   var source = audioContext.createBufferSource();
+  var offcontext;
+  var offsource;
   var nowPlaying = false;
   var nowPlayingItem = -1;
   var globalPlaybackRate = 1;
@@ -170,7 +173,6 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   // permanently set to level=1. It should never be changed.
   var previewInputNode = audioContext.createGain();
   previewInputNode.gain.setValueAtTime(1, audioContext.currentTime);
-
 
   // Initial filter setup
   let filterLo = audioContext.createBiquadFilter();
@@ -227,6 +229,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   // Preview audio graph
   source.connect(previewInputNode);
 
+  /*
   if($scope.options.limiter_enabled) {
     previewInputNode.disconnect();
     hardlimiter.disconnect();
@@ -240,13 +243,18 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     previewInputNode.disconnect()
     previewInputNode.connect(limiterMakeup);
   }
+  */
 
-  limiterMakeup.connect(filterLo);
+  //limiterMakeup.connect(filterLo);
 
-  filterLo.connect(filterHi);
-  filterHi.connect(outputmerger);
-  filterHi.connect(brenCrusher);
-  brenCrusher.connect(volumeGain);
+  //filterLo.connect(filterHi);
+  //filterHi.connect(outputmerger);
+  //filterHi.connect(brenCrusher);
+  //brenCrusher.connect(volumeGain);
+
+  
+  source.connect(outputmerger);
+  outputmerger.connect(volumeGain);
 
   volumeGain.gain.setValueAtTime($scope.options.playbackvolume/100, audioContext.currentTime);
   volumeGain.connect(audioContext.destination);
@@ -414,7 +422,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     $scope.loading = true;
     var proms = [];
     for(var p in $scope.files) {
-      proms.push($scope.processItem(p, function(msg) {
+      proms.push($scope.processItem(true, p, function(msg) {
         console.log(msg);
       }));
     }
@@ -437,79 +445,134 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     })
   }
 
+
   function constructBufferPlayer(idx) {
     // Called every time we need to start playback
-    destroyBufferPlayer(idx).then(() => {
-      console.log("DESTROYED!");
+        //console.log(value);
+        
+        // Offline preview rendering is done; now play it back
 
-      source = audioContext.createBufferSource();
-      source.detune.value = playbackDetuneValue;
-      source.buffer = $scope.files[idx].buffer;
-      source.playbackRate.value = globalPlaybackRate;
-
-
-
-      //$scope.files[i].preview.connect($scope.files[i].filterLo);
-      $scope.options.limiter_enabled = $scope.files[idx].limiter_enabled;
-      source.connect(previewInputNode);
-
-
-      //$scope.files[idx].spectrum.connect(bitcrushNode);
-
-      $scope.updateGlobalEffects();
-
-      if($scope.options.previewSamplerate) {
-        brenCrushFreq = $scope.files[idx].samplerate.map(0, $scope.files[idx].buffer.sampleRate, 0, 1);
-      } else {
-        brenCrushFreq = 1;
-      }
-
-      $scope.files[idx].contextTimeAtStart = audioContext.currentTime;
-      $scope.files[idx].realtimeDuration = source.buffer.duration * (1/globalPlaybackRate);
-      //source.start(0, $scope.files[idx].trimstart.map(0,source.buffer.duration,0,$scope.files[idx].realtimeDuration)); // offset is always relative to time at the sample's natural samplerate, regardless of globalPlaybackRate
-      source.start(0, $scope.files[idx].trimstart); // offset is always relative to time at the sample's natural samplerate, regardless of globalPlaybackRate
-      source.loop = false;
-      nowPlaying = true;
-      nowPlayingItem = idx;
-
-      source.addEventListener('ended', () => {
-        //destroyBufferPlayer(idx);
-        window.cancelAnimationFrame($scope.drawVisual);
-      })
-
-      $scope.files[idx].progressTimer = setInterval(() => {
-
-        var scaledTrimstart = $scope.files[idx].trimstart.map(0,source.buffer.duration,0,$scope.files[idx].realtimeDuration);
-        var scaledTrimend = $scope.files[idx].trimend.map(0, source.buffer.duration, 0, $scope.files[idx].realtimeDuration);
-        var scaledRange = scaledTrimend - scaledTrimstart;
-        var elapsed = audioContext.currentTime  - $scope.files[idx].contextTimeAtStart + scaledTrimstart;
-
-        if(elapsed >= scaledTrimend) {
-          destroyBufferPlayer(idx);
+        source = audioContext.createBufferSource();
+        source.detune.value = playbackDetuneValue;
+        if($scope.options.previewOutput)
+        {
+          source.buffer = $scope.files[idx].renbuf;
+        }      
+        else
+        {
+          source.buffer = $scope.files[idx].buffer;
         }
+        source.playbackRate.value = globalPlaybackRate;
+        source.connect(outputmerger);
 
-        var realTimeElapsed = audioContext.currentTime - $scope.files[idx].contextTimeAtStart + ($scope.files[idx].trimstart);
-        var proportionalElapsed = realTimeElapsed.map(0, source.buffer.duration, 0, source.buffer.duration * (1/globalPlaybackRate));
+        $scope.files[idx].contextTimeAtStart = audioContext.currentTime;
+        $scope.files[idx].realtimeDuration = source.buffer.duration * (1/globalPlaybackRate);
+        //source.start(0, $scope.files[idx].trimstart.map(0,source.buffer.duration,0,$scope.files[idx].realtimeDuration)); // offset is always relative to time at the sample's natural samplerate, regardless of globalPlaybackRate
+        if($scope.options.previewOutput)
+        {
+          source.start(0, 0); // offset is always relative to time at the sample's natural samplerate, regardless of globalPlaybackRate
+        }
+        else
+        {
+          source.start(0, $scope.files[idx].trimstart); // offset is always relative to time at the sample's natural samplerate, regardless of globalPlaybackRate
+        }
+        
+        source.loop = false;
+        nowPlaying = true;
+        nowPlayingItem = idx;
 
-        var playhead = document.getElementById('playhead-' + idx);
-        var phNewpos = Math.round(elapsed.map(0, $scope.files[idx].realtimeDuration, 0, displayCanvasWidth));
+        source.addEventListener('ended', () => {
+          //destroyBufferPlayer(idx);
+          window.cancelAnimationFrame($scope.drawVisual);
+        })
 
-        playhead.style['left'] = phNewpos + 'px';
+        $scope.files[idx].progressTimer = setInterval(() => {
 
-      },30)
+          // TO DO - this is a total mess for preview playback. Since we're playing an output buffer that's already been trimmed, 
+          // all bets are off in terms of timing offsets. 
 
-    });
+          //buffer.duration is always THE ENTIRE DURATIOn. renbuf.duration is always THE TRIMMED DURATION
+          var outputDuration;
+          var outputStartTime;
+          
+          var playhead = document.getElementById('playhead-' + idx);
+                              
+          var scaledTrimstart;
+          var scaledTrimend;
+          var elapsed;
+          var phNewpos; 
 
+           // The scaled region start time, factoring in pitch adjustment according to input note
+           scaledTrimstart = $scope.files[idx].trimstart.map(0, source.buffer.duration, 0, $scope.files[idx].realtimeDuration);
+           // The scaled region end time, used to stop playback when exceeded by elapsed
+           scaledTrimend = $scope.files[idx].trimend.map(0, source.buffer.duration, 0, $scope.files[idx].realtimeDuration);
 
+           elapsed = audioContext.currentTime  - $scope.files[idx].contextTimeAtStart + scaledTrimstart;
+
+          if($scope.options.previewOutput)
+          {
+            // I can't work out how to make the playhead/progress line move properly when Preview Output is enabled
+            phNewpos = Math.round(elapsed.map(0, $scope.files[idx].realtimeDuration, 0, displayCanvasWidth));       
+
+            if(elapsed >= (scaledTrimend + scaledTrimstart)) {
+              destroyBufferPlayer(idx);
+            }
+          }
+          else
+          { 
+            phNewpos = Math.round(elapsed.map(0, $scope.files[idx].realtimeDuration, 0, displayCanvasWidth));       
+
+            if(elapsed >= scaledTrimend) {
+              destroyBufferPlayer(idx);
+            }
+
+          }
+
+          playhead.style['left'] = phNewpos + 'px';    
+
+          //console.log("TS: " + $scope.files[idx].trimstart + " TE: " + $scope.files[idx].trimend + " El: " + elapsed + " STS: " + scaledTrimstart + " STE: " + scaledTrimend);
+
+        },30)
+
+        // Offline preview rendering FINISHED
 
   }
 
 
+  function constructRenderedBufferPlayer(idx, renbuf)
+  {
+    destroyBufferPlayer(idx).then(() => {
+      console.log("DESTROYED RenderedBufferPlayer");
+
+      if($scope.options.previewOutput)
+      {
+        $scope.loading = true;
+        $scope.$apply();
+        // Called every time we need to render a preview, then playback
+        $scope.processItem(false, idx, function(msg) {
+          console.log(msg);      
+        })
+        .then(
+          function(value) {
+            console.log("processItem done");
+            $scope.loading = false;
+            $scope.$apply();
+            constructBufferPlayer(idx); 
+          }
+        );
+      }
+      else
+      {
+        constructBufferPlayer(idx); 
+      }
+      
+    });
+  }
 
   function destroyBufferPlayer(idx) {
     return new Promise((resolve, reject) => {
         if(nowPlaying) {
-            source.disconnect(previewInputNode);
+            source.disconnect();
             source.stop();
         }
         nowPlaying = false;
@@ -524,12 +587,14 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   }
 
 
-
-
   function createDecodedItem(tmpfile) {
 
     return new Promise((resolve, reject) => {
 
+      // Always force this to false on load - it's a bodge for some trim point weirdness, but 
+      // also good practice to confirm the 'before' sound before comparing against the output preview
+      $scope.options.previewOutput = false;
+      
       $scope.files.push(tmpfile);
       var i = $scope.files.length - 1;
       $scope.selectedItem = i;
@@ -579,6 +644,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
               buffer.copyToChannel(sourceData, 0, 0);
               $scope.files[i].buffer = buffer;
               $scope.files[i].waveformBuffer = buffer;
+              $scope.files[i].renbuf = buffer; // Bren 2022-03-14 target buffer for on-the-fly preview rendering              
 
               $scope.files[i].realtimeDuration = buffer.duration * (1/globalPlaybackRate);
               $scope.files[i].filtercanvas = document.getElementById('filter-canvas-' + i);
@@ -722,7 +788,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   }
 
 
-  $scope.processItem = function (idx, cb) {
+  $scope.processItem = function (doWrite, idx, cb) {
     return new Promise((resolve, reject) => {
 
         $scope.files[idx].processing = true;
@@ -748,8 +814,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
         var renderstart = $scope.files[idx].trimstart;
         var samplerate = $scope.files[idx].samplerate;
 
-        let offcontext = new OfflineAudioContext(1, $scope.files[idx].outputsize, samplerate);
-        let offsource = offcontext.createBufferSource();
+        offcontext = new OfflineAudioContext(1, $scope.files[idx].outputsize, samplerate);
+        offsource = offcontext.createBufferSource();
         offsource.buffer = $scope.files[idx].buffer;
 
         // OFFLINE DSP HAPPENS HERE
@@ -869,122 +935,147 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
           var outDataBuf = Buffer.from(outData8bitArr);
 
+          
+          if(!doWrite)
+          {
+            // Bren 2022-03-14
+            // Test playing this buffer instead of writing it to wav/8svx                    
+            $scope.files[idx].renbuf = audioContext.createBuffer(1, outData.length, samplerate);
+            
+            // Instead of converting our output 8bit buffer back to 32bit float, we do yet another bitcrush on the existing 32bit float buffer            
 
-          if($scope.options.saveWav) {
-            // Prep to save RIFF WAV
-            /*
-              1-4   "RIFF"
-              5-8   File size in UInt32. Data + 44b header
-              9-12    "WAVE"
-              13-16   "fmt " (includes trailing null)
-              17-20   16   Length of format data as listed above
-              21-22   1    Type of format (1 is PCM) - UInt16 integer
-              23-24   1    Number of channels (always mono for us!)
-              25-28        Sample rate - UInt32
-              29-32        Sample rate * 8 (bits per sample) * 1 (channel) / 8
-              33-34   1    (8 (bits per sample) * 1 (channel)) / 8
-              35-36   8    Bits per sample
-              37-40   "data"  Chunk header, marks start of data section
-              41-44        Data size
+            var float32 = new Float32Array(outDataBuf.length);
+            
+            for(var i = 0; i < outDataBuf.length; i++)
+            {
+              const step = Math.pow(0.5, 8);
+              float32[i] = step * Math.floor(outData[i]/step);
+            }            
 
-            */
-            var outSize = outDataBuf.length + 36;
-
-            var outDataSigned = [];
-            for (var b = 0; b < outDataBuf.length; b++) {
-              outDataSigned[b] = outDataBuf.readInt8(b)  -128;
-            }
-            outDataBuf = Buffer.from(outDataSigned);
-            console.log(outDataBuf);
-
-            console.log("WAV outSize (should always be even) = " + outSize + " outDataBuf len: " + outDataBuf.length);
-            var smpOutBuf = Buffer.alloc(outSize+8);
-
-            smpOutBuf.write('RIFF', 0, 4, 'ascii');
-            smpOutBuf.writeUInt32LE(outSize,4);
-
-            smpOutBuf.write('WAVE', 8, 4, 'ascii');
-
-            smpOutBuf.write('fmt', 12, 3, 'ascii');
-            smpOutBuf.writeInt8(0x20,15);
-
-            smpOutBuf.writeUInt32LE(16, 16);
-            smpOutBuf.writeUInt16LE(1, 20);
-            smpOutBuf.writeUInt16LE(1, 22);
-            smpOutBuf.writeUInt32LE($scope.files[idx].samplerate, 24);
-            smpOutBuf.writeUInt32LE($scope.files[idx].samplerate, 28);
-            smpOutBuf.writeUInt16LE(1,32);
-            smpOutBuf.writeUInt16LE(8,34);
-            smpOutBuf.write("data", 36, 4, 'ascii');
-            smpOutBuf.writeUInt32LE(outDataBuf.length,40);
-            outDataBuf.copy(smpOutBuf, 44, 0, outDataBuf.length);
-            // 8bit signed for WAV, rather than the 8bit unsigned we prepared for 8SVX
-            for (var o = 44; o < outDataBuf.length; o++) {
-              outDataBuf.writeInt8(outDataBuf.readUInt8(o)-128, o)
-            }
-            outfile = outfile.substring(0, outfile.lastIndexOf('.8SVX'));
-            outfile += '.WAV';
-            console.log('attempting to write WAV to ' + outfile);
-            fs.writeFile(outfile, smpOutBuf, function(err) {
-              if(err) {
-                console.log(err)
-                alert(err);
-              } else {
-                console.log('WAV file written, maybe!');
-                $scope.loading = false;
-                resolve();
-              }
-            });
-
-          } else {
-            // Now that we've got a buffer, I guess we can write it to 8SVX...
-            // Work out the output filesize first: we need it both for the buffer allocation and for the FORM
-
-            // FORM and outsize take up 8 bytes, and outsize states the length of the REST of the entire file:
-            // 8SVXVHDR (8) + sampledata length (8) + repeats/hicycle (8) + samplerate (2) + octave (1) + comp (1) + volume (4)
-            // = 32 + sampledatalength = FORM's size + 8 = *our* outsize.
-            var formSize = 32 + outDataBuf.length;
-            var outSize = formSize+8;
-            console.log("output size: " + outSize);
-
-            var smpOutBuf = Buffer.alloc(outSize);
-            smpOutBuf.write('FORM', 0, 4, 'ascii');
-            smpOutBuf.writeUInt32BE(formSize,4);
-            smpOutBuf.write('8SVXVHDR',8,8,'ascii');
-            smpOutBuf.writeInt8(0,16);
-            smpOutBuf.writeInt8(0,17);
-            smpOutBuf.writeInt8(0,18);
-            smpOutBuf.writeInt8(20,19); // This header's own length, I think...
-            smpOutBuf.writeUInt32BE(outDataBuf.length, 20);
-            // Then it's 8 empty bytes, because we don't care about repeatHiSamples or samplesPerHiCycle
-            // Then samplerate as a UInt16BE
-            smpOutBuf.writeUInt16BE($scope.files[idx].samplerate,32);
-            smpOutBuf.writeInt8(1, 34); // Octave is always 1
-            smpOutBuf.writeInt8(0, 35); // Compression always 0
-            smpOutBuf.writeInt8(0, 36); // These
-            smpOutBuf.writeInt8(1, 37); // constitute
-            smpOutBuf.writeInt8(0, 38); // the volume,
-            smpOutBuf.writeInt8(0, 39); // always 256 (100h)
-            smpOutBuf.write('BODY', 40, 4, 'ascii');
-            smpOutBuf.writeUInt32BE(outDataBuf.length, 44);
-
-            outDataBuf.copy(smpOutBuf, 48, 0, outDataBuf.length);
-
-            //let outPath = $scope.files[idx].inputDir + 'TESTER.8SVX';
-
-            console.log('attempting to write 8SVX to ' + outfile);
-            fs.writeFile(outfile, smpOutBuf, function(err) {
-              if(err) {
-                console.log(err)
-                alert(err);
-              } else {
-                console.log('8SVX file written, maybe!');
-                $scope.loading = false;
-                resolve();
-              }
-            });
-
+            $scope.files[idx].renbuf.copyToChannel(float32, 0);
+            
+            console.log("Not writing output, just putting the output buffer in renbuf");
+            resolve("generated renbuf");
           }
+          else
+          {
+            if($scope.options.saveWav) {
+              // Prep to save RIFF WAV
+              /*
+                1-4   "RIFF"
+                5-8   File size in UInt32. Data + 44b header
+                9-12    "WAVE"
+                13-16   "fmt " (includes trailing null)
+                17-20   16   Length of format data as listed above
+                21-22   1    Type of format (1 is PCM) - UInt16 integer
+                23-24   1    Number of channels (always mono for us!)
+                25-28        Sample rate - UInt32
+                29-32        Sample rate * 8 (bits per sample) * 1 (channel) / 8
+                33-34   1    (8 (bits per sample) * 1 (channel)) / 8
+                35-36   8    Bits per sample
+                37-40   "data"  Chunk header, marks start of data section
+                41-44        Data size
+  
+              */
+              var outSize = outDataBuf.length + 36;
+  
+              var outDataSigned = [];
+              for (var b = 0; b < outDataBuf.length; b++) {
+                outDataSigned[b] = outDataBuf.readInt8(b)  -128;
+              }
+              outDataBuf = Buffer.from(outDataSigned);
+              console.log(outDataBuf);
+  
+              console.log("WAV outSize (should always be even) = " + outSize + " outDataBuf len: " + outDataBuf.length);
+              var smpOutBuf = Buffer.alloc(outSize+8);
+  
+              smpOutBuf.write('RIFF', 0, 4, 'ascii');
+              smpOutBuf.writeUInt32LE(outSize,4);
+  
+              smpOutBuf.write('WAVE', 8, 4, 'ascii');
+  
+              smpOutBuf.write('fmt', 12, 3, 'ascii');
+              smpOutBuf.writeInt8(0x20,15);
+  
+              smpOutBuf.writeUInt32LE(16, 16);
+              smpOutBuf.writeUInt16LE(1, 20);
+              smpOutBuf.writeUInt16LE(1, 22);
+              smpOutBuf.writeUInt32LE($scope.files[idx].samplerate, 24);
+              smpOutBuf.writeUInt32LE($scope.files[idx].samplerate, 28);
+              smpOutBuf.writeUInt16LE(1,32);
+              smpOutBuf.writeUInt16LE(8,34);
+              smpOutBuf.write("data", 36, 4, 'ascii');
+              smpOutBuf.writeUInt32LE(outDataBuf.length,40);
+              outDataBuf.copy(smpOutBuf, 44, 0, outDataBuf.length);
+              // 8bit signed for WAV, rather than the 8bit unsigned we prepared for 8SVX
+              for (var o = 44; o < outDataBuf.length; o++) {
+                outDataBuf.writeInt8(outDataBuf.readUInt8(o)-128, o)
+              }
+              outfile = outfile.substring(0, outfile.lastIndexOf('.8SVX'));
+              outfile += '.WAV';
+              console.log('attempting to write WAV to ' + outfile);
+              fs.writeFile(outfile, smpOutBuf, function(err) {
+                if(err) {
+                  console.log(err)
+                  alert(err);
+                } else {
+                  console.log('WAV file written, maybe!');
+                  $scope.loading = false;
+                  resolve();
+                }
+              });
+  
+            } else {
+              // Now that we've got a buffer, I guess we can write it to 8SVX...
+              // Work out the output filesize first: we need it both for the buffer allocation and for the FORM
+  
+              // FORM and outsize take up 8 bytes, and outsize states the length of the REST of the entire file:
+              // 8SVXVHDR (8) + sampledata length (8) + repeats/hicycle (8) + samplerate (2) + octave (1) + comp (1) + volume (4)
+              // = 32 + sampledatalength = FORM's size + 8 = *our* outsize.
+              var formSize = 32 + outDataBuf.length;
+              var outSize = formSize+8;
+              console.log("output size: " + outSize);
+  
+              var smpOutBuf = Buffer.alloc(outSize);
+              smpOutBuf.write('FORM', 0, 4, 'ascii');
+              smpOutBuf.writeUInt32BE(formSize,4);
+              smpOutBuf.write('8SVXVHDR',8,8,'ascii');
+              smpOutBuf.writeInt8(0,16);
+              smpOutBuf.writeInt8(0,17);
+              smpOutBuf.writeInt8(0,18);
+              smpOutBuf.writeInt8(20,19); // This header's own length, I think...
+              smpOutBuf.writeUInt32BE(outDataBuf.length, 20);
+              // Then it's 8 empty bytes, because we don't care about repeatHiSamples or samplesPerHiCycle
+              // Then samplerate as a UInt16BE
+              smpOutBuf.writeUInt16BE($scope.files[idx].samplerate,32);
+              smpOutBuf.writeInt8(1, 34); // Octave is always 1
+              smpOutBuf.writeInt8(0, 35); // Compression always 0
+              smpOutBuf.writeInt8(0, 36); // These
+              smpOutBuf.writeInt8(1, 37); // constitute
+              smpOutBuf.writeInt8(0, 38); // the volume,
+              smpOutBuf.writeInt8(0, 39); // always 256 (100h)
+              smpOutBuf.write('BODY', 40, 4, 'ascii');
+              smpOutBuf.writeUInt32BE(outDataBuf.length, 44);
+  
+              outDataBuf.copy(smpOutBuf, 48, 0, outDataBuf.length);
+  
+              //let outPath = $scope.files[idx].inputDir + 'TESTER.8SVX';
+  
+              console.log('attempting to write 8SVX to ' + outfile);
+              fs.writeFile(outfile, smpOutBuf, function(err) {
+                if(err) {
+                  console.log(err)
+                  alert(err);
+                } else {
+                  console.log('8SVX file written, maybe!');
+                  $scope.loading = false;
+                  resolve();
+                }
+              });
+  
+            }
+          }
+          
 
         })
 
@@ -1293,7 +1384,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   $scope.toggle8bit = function() {
     var depth;
-    if($scope.options.preview8bit) {
+    if($scope.options.previewOutput) {
       depth = 16;
     } else {
       depth = 8;
@@ -1319,12 +1410,9 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     $scope.updateGlobalEffects();
   }
 
-  $scope.togglePreviewSamplerate = function() {
-    $scope.options.previewSamplerate = !$scope.options.previewSamplerate;
-  }
-
-  $scope.togglePreviewBitrate = function() {
-    $scope.options.preview8bit = !$scope.options.preview8bit;
+  $scope.togglePreviewOutput = function() {
+    destroyBufferPlayer($scope.selectedItem);
+    $scope.options.previewOutput = !$scope.options.previewOutput;
   }
 
   $scope.toggleTruncateFilenames = function() {
@@ -1458,7 +1546,17 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     globalPlaybackRate = Math.pow(semitoneRatio, inSemitone);
     //playbackDetuneValue = inSemitone * 100;
 
-    constructBufferPlayer($scope.selectedItem);
+    //constructBufferPlayer($scope.selectedItem);
+
+    // Bren 2022-03-14
+    // TEST - render proper preview on the fly, then play    
+    // Ignore any notes that come in while loading is true (this probably means the PreviewOutput mode buffer is rendering)
+    if(!$scope.loading)
+    {
+      constructRenderedBufferPlayer($scope.selectedItem);
+    }
+    
+    
     drawAnalyzer()
 
   }
