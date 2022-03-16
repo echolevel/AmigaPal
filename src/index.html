@@ -548,9 +548,9 @@
 
                </div>
 
-               <div class="col-12 input-group input-group-sm btn-group" >
+               <div class="col-12 input-group input-group-sm btn-group" ng-click="toggleOutputToSource();">
                  <span class="input-group-addon"> <i class="fas fa-fw" ng-class="{ 'fa-check' : options.outputToSource, 'fa-times' : !options.outputToSource  }"></i> </span>
-                 <button type="button" class="btn btn-sm btn-secondary btn-block btn-custom-toggle" ng-class="{ 'custom-toggle-inactive': !options.outputToSource}" ng-click="toggleOutputToSource();" style="line-height: 20px;">
+                 <button type="button" class="btn btn-sm btn-secondary btn-block btn-custom-toggle" ng-class="{ 'custom-toggle-inactive': !options.outputToSource}" style="line-height: 20px;">
                    Output dir same as source
                  </button>
 
@@ -571,7 +571,8 @@
                <span class="input-group-addon" style="min-width: 67%">Protracker note</span>
              </div>
 
-             <div class="col-4 input-group input-group-sm">
+             <div class="col-4 input-group input-group-sm"
+              title="Update all samples in the list with this Sample Rate and Protracker Note">
 
                <button type="button" class="btn btn-sm btn-secondary btn-block"  ng-click="applyToAll();" style="line-height: 20px">
                  Set all
@@ -619,52 +620,55 @@
 
             <div class="form-group row" style="margin-top: 0px; margin-bottom: 0px">
 
-              <div class="col-12 input-group input-group-sm btn-group">
+              <div class="col-12 input-group input-group-sm btn-group" ng-click="togglePreviewOutput();"
+              title="When enabled, note playback renders the output so you can hear it exactly as it'll be saved to file. Toggle this to A/B compare samples while you prepare them."
+              >
                 <span class="input-group-addon"> <i class="fas fa-fw" ng-class="{ 'fa-check' : options.previewOutput, 'fa-times' : !options.previewOutput  }"></i> </span>
-                <button type="button" class="btn btn-sm btn-secondary btn-block btn-custom-toggle" ng-class="{ 'custom-toggle-inactive': !options.previewOutput}" ng-click="togglePreviewOutput();" style="line-height: 20px;">
+                <button type="button" class="btn btn-sm btn-secondary btn-block btn-custom-toggle" ng-class="{ 'custom-toggle-inactive': !options.previewOutput}" style="line-height: 20px;"
+                >
                   Preview output
                 </button>
               </div>
 
-              <!--
-              <div class="col-12 input-group input-group-sm btn-group">
-                <span class="input-group-addon"> <i class="fas fa-fw" ng-class="{ 'fa-check' : options.preview8bit, 'fa-times' : !options.preview8bit  }"></i> </span>
-                <button type="button" class="btn btn-sm btn-secondary btn-block btn-custom-toggle" ng-class="{ 'custom-toggle-inactive': !options.preview8bit}" ng-click="togglePreviewBitrate();" style="line-height: 20px;">
-                  Preview bit depth
-                </button>
-              </div>
-              -->
-
-              <div class="col-6 input-group input-group-sm btn-group">
+              <div class="col-6 input-group input-group-sm btn-group" ng-click="toggleTruncateFilenames();"
+                title="Truncate output filename for better compatibility with old operating systems' filename/path length limits">
                 <span class="input-group-addon"> <i class="fas fa-fw" ng-class="{ 'fa-check' : options.truncateFilenames, 'fa-times' : !options.truncateFilenames  }"></i> </span>
-                <button type="button" class="btn btn-sm btn-secondary btn-block btn-custom-toggle" ng-class="{ 'custom-toggle-inactive': !options.truncateFilenames}" ng-click="toggleTruncateFilenames();" style="line-height: 20px;">
+                <button type="button" class="btn btn-sm btn-secondary btn-block btn-custom-toggle" ng-class="{ 'custom-toggle-inactive': !options.truncateFilenames}" style="line-height: 20px;"
+                >
                   Truncate
                 </button>
               </div>
 
-              <div class="col-6 input-group input-group-sm btn-group">
+              <div class="col-6 input-group input-group-sm btn-group" ng-click="toggleSaveWav();"
+              title="Enable to export WAV rather than the default 8SVX">
                 <span class="input-group-addon"> <i class="fas fa-fw" ng-class="{ 'fa-check' : options.saveWav, 'fa-times' : !options.saveWav  }"></i> </span>
-                <button type="button" class="btn btn-sm btn-secondary btn-block btn-custom-toggle" ng-class="{ 'custom-toggle-inactive': !options.saveWav}" ng-click="toggleSaveWav();" style="line-height: 20px;">
+                <button type="button" class="btn btn-sm btn-secondary btn-block btn-custom-toggle" ng-class="{ 'custom-toggle-inactive': !options.saveWav}" style="line-height: 20px;"
+                >
                   WAV
                 </button>
               </div>
 
-              <div class="col-6 input-group input-group-sm btn-group">
+              <div class="col-6 input-group input-group-sm btn-group"  ng-click="toggleCreateMod();"
+              title="Enable to create and save a blank Protracker module containing up to 31 of the currently loaded samples">
                 <span class="input-group-addon"> <i class="fas fa-fw" ng-class="{ 'fa-check' : options.createMod, 'fa-times' : !options.createMod  }"></i> </span>
-                <button type="button" class="btn btn-sm btn-secondary btn-block btn-custom-toggle" ng-class="{ 'custom-toggle-inactive': !options.createMod}" ng-click="toggleCreateMod();" style="line-height: 20px;">
+                <button type="button" class="btn btn-sm btn-secondary btn-block btn-custom-toggle" ng-class="{ 'custom-toggle-inactive': !options.createMod}" style="line-height: 20px;"
+                >
                   Save mod
                 </button>
               </div>
 
-              <div class="col-6 input-group input-group-sm btn-group">
+              <div class="col-6 input-group input-group-sm btn-group" ng-click="toggleLongSampleSupport();"
+              title="If creating and saving a Protracker mod, choose whether it should support 128kb sample size limit rather than 64kb">
                 <span class="input-group-addon" ng-disabled="!options.createMod"> <i class="fas fa-fw" ng-class="{ 'fa-check' : options.longSampleSupport, 'fa-times' : !options.longSampleSupport  }"></i> </span>
-                <button type="button" class="btn btn-sm btn-secondary btn-block btn-custom-toggle" ng-class="{ 'custom-toggle-inactive': !options.longSampleSupport}" ng-click="toggleLongSampleSupport();" style="line-height: 20px;" ng-disabled="!options.createMod">
+                <button type="button" class="btn btn-sm btn-secondary btn-block btn-custom-toggle" ng-class="{ 'custom-toggle-inactive': !options.longSampleSupport}" style="line-height: 20px;" ng-disabled="!options.createMod"
+                >
                   128kb
                 </button>
               </div>
 
 
-              <div class="col-12 input-group input-group-sm">
+              <div class="col-12 input-group input-group-sm"
+                title="The title of the generated Protracker module, if 'Save mod' is enabled">
                 <span class="input-group-addon" ng-disabled="!options.createMod">Title</span>
                 <input id="mod_title_input" class="form-control" ng-disabled="!options.createMod" maxlength="22" type="text" placeholder="AMIGAPAL_MOD" ng-model="options.modTitle">
               </div>
@@ -693,7 +697,7 @@
 
             <div class="col-12 text-right input-group input-group-sm">
 
-              <button type="button" style="margin-top: 4px; line-height: 20px"  class="btn btn-sm btn-secondary btn-block" ng-click="convertProms();" ng-disabled="files.length < 1">
+              <button type="button" style="margin-top: 4px; line-height: 20px"  class="btn btn-sm btn-secondary btn-block" ng-click="convertAll();" ng-disabled="files.length < 1">
                 <i class="fas fa-fw fa-random" ></i> Convert {{files.length}}
               </button>
 
@@ -749,7 +753,40 @@
                 size: <span class="infotext" ng-bind="file.outputsize | number: 0"></span> b <br>
                 <!--Target duration: <span ng-bind="file.outputduration | number: 2"></span> seconds      <br>-->
                 length: <span class="infotext" ng-bind="file.trimrange | number: 2"></span> s
-
+                <br/>
+                <button type="button" 
+                    class="btn btn-sm btn-secondary btn-custom-toggle" 
+                    ng-class="" 
+                    style="line-height: 15px; font-size:11px; width: 22px; height: 24px;" 
+                    ng-click="copyLimiterToAll($index);"
+                    title="Copy Limiter settings to all other files">
+                  <i class="fas fa-copy"></i>
+                </button>
+                <button type="button" 
+                    class="btn btn-sm btn-secondary btn-custom-toggle" 
+                    ng-class="" 
+                    style="line-height: 15px; font-size:11px; width: 22px; height: 24px;" 
+                    ng-click="copyHiPassToAll($index);"
+                    title="Copy Lo Cut settings to all other files">
+                    
+                  <i class="fas fa-copy"></i>
+                </button>
+                <button type="button" 
+                    class="btn btn-sm btn-secondary btn-custom-toggle" 
+                    ng-class="" 
+                    style="line-height: 15px; font-size:11px; width: 22px; height: 24px;" 
+                    ng-click="copyLoPassToAll($index);"
+                    title="Copy Hi Cut settings to all other files">
+                  <i class="fas fa-copy"></i>
+                </button>
+                <button type="button" 
+                    class="btn btn-sm btn-secondary btn-custom-toggle" 
+                    ng-class="" 
+                    style="line-height: 15px; font-size:11px; width: 22px; height: 24px;" 
+                    ng-click="copyPTNoteToAll($index);"
+                    title="Copy PT note to all other files">
+                  <i class="fas fa-copy"></i>
+                </button>
 
               </div>
 
@@ -802,13 +839,15 @@
 
                 <div class="col-6">
                   <div class="row">
+                    
+                     
                     <label class="col-6 col-form-label" style="padding-left: 0 !important; padding-right: 0 !important">
-                      Lo cut:
+                      Lo Cut:
                       <input class="filter-input" type="number" style="width: 58px; padding: 0 !important" ng-model="file.highpassfrequency" ng-change="updateGlobalEffects()"></input>
                       hz
                     </label>
                     <label class="col-6 col-form-label" style="padding-left: 0 !important; padding-right: 0 !important">
-                      Hi cut:
+                      Hi Cut:
                       <input class="filter-input" type="number" style="width: 58px; padding: 0 !important" ng-model="file.lowpassfrequency" ng-change="updateGlobalEffects()"></input>
                       hz
                     </label>

@@ -85,7 +85,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
 }
 
-
+  // Various useful maths and byte-wrangling helpers
   Number.prototype.clamp = function(min, max) {
     return Math.min(Math.max(this,min),max);
   }
@@ -94,8 +94,31 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     return out.clamp(out_min, out_max);
   };
 
+  var toLin = function(value, width) {
+    var minp = 0;
+    var maxp = width;
 
-  let playbackDetuneValue = 0;
+    var minv = Math.log(40);
+    var maxv = Math.log(20000);
+    var scale = (maxv-minv) / (maxp-minp);
+    return (Math.log(value)-minv) / scale + minp;
+  }
+
+  // For padding the output buffer if it needs to be rounded up to an even number of bytes
+  function pad(num, size) {
+    var s = num+"";
+    while (s.length < size) s = "0" + s;
+    return s;
+  }
+
+  function d2h(d) {
+    var s = (+d).toString(16);
+    if(s.length < 2) {
+        s = '0' + s;
+    }
+    return s;
+  }
+
 
   $scope.ptnotes = {
     "C-1": 4143, "C#1": 4389, "D-1": 4654, "D#1": 4926, "E-1": 5231, "F-1": 5542, "F#1": 5872, "G-1": 6222, "G#1": 6592, "A-1": 6982, "A#1": 7389, "B-1": 7829,
@@ -118,6 +141,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   $scope.filetypes = ['WAV', 'MP3', 'OGG', 'FLAC', 'AAC', 'AIF', 'AIFF'];
 
+  let playbackDetuneValue = 0;
 
   $scope.working = false;
 
@@ -157,7 +181,6 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   $scope.options.previewOutput = false;
 
   // Preview chain setup
-
   var audioContext = new AudioContext({
     latencyHint: 'interactive' // This is default anyway
   });
@@ -168,132 +191,49 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
   var nowPlayingItem = -1;
   var globalPlaybackRate = 1;
 
-  // The previewInputNode is connected to elsewhere, after a file has been loaded, to
-  // hook up the file's buffer to the preview audio graph. It's just a gain that's
-  // permanently set to level=1. It should never be changed.
+  // previewInputNode is connected to by each file's audioContext when doing a non-preview playback.
+  // It's just a gain that's permanently set to level=1. It should never be changed.
   var previewInputNode = audioContext.createGain();
   previewInputNode.gain.setValueAtTime(1, audioContext.currentTime);
 
-  // Initial filter setup
-  let filterLo = audioContext.createBiquadFilter();
-  let filterHi = audioContext.createBiquadFilter();
-  filterLo.type = "lowpass";
-  filterHi.type = "highpass";
-  filterLo.frequency.setValueAtTime(20000, audioContext.currentTime);
-  filterHi.frequency.setValueAtTime(40, audioContext.currentTime);
-  filterHi.Q.setValueAtTime(0, audioContext.currentTime);
-  filterLo.Q.setValueAtTime(0, audioContext.currentTime);
-
-  let splitter = audioContext.createChannelSplitter(2);
   let outputmerger = audioContext.createChannelMerger(1);
 
   var volumeGain = audioContext.createGain();
-
-  // Adapted from the very nice bitcrusher.js by jaz303 (https://github.com/jaz303/bitcrusher)
-  // because I wanted to learn how it worked and also tweak some stuff.
-  var brenCrushFreq = 1;
-  var brenCrusher = audioContext.createScriptProcessor(1024, 1, 1);
-  brenCrusher.onaudioprocess = function(evt) {
-    var inB = evt.inputBuffer;
-    var outB = evt.outputBuffer;
-    var step = 2 * Math.pow(0.5, 8);
-    var stepinverted = 1 / step;
-    var phasor = 0;
-    var last = 0;
-
-    var inData = inB.getChannelData(0);
-    var outData = outB.getChannelData(0);
-
-    for(var sample = 0; sample < outB.length; sample++) {
-      phasor += brenCrushFreq;
-      if(phasor >= 1) {
-        phasor -= 1;
-        last = step * Math.floor((inData[sample] * stepinverted) + 0.5);
-      }
-      outData[sample] = last;
-
-    }
-  }
-
-  // Test DC-based hardlimiter
-  let hardlimiter = audioContext.createDynamicsCompressor();
-  let limiterMakeup = audioContext.createGain();
-
-
-  hardlimiter.attack.value = 0.002; // hmm
-  hardlimiter.release.value = 0.06; // okay
-  hardlimiter.knee.value = 0.0; // yikes
-  hardlimiter.ratio.value = 20; // OOF
-  hardlimiter.threshold.value = -60.0; // SHIT THE BED
-
   // Preview audio graph
   source.connect(previewInputNode);
 
-  /*
-  if($scope.options.limiter_enabled) {
-    previewInputNode.disconnect();
-    hardlimiter.disconnect();
-    previewInputNode.connect(hardlimiter);
-    hardlimiter.connect(limiterMakeup);
-  } else {
-    // Make the makeup gain available even when the limiter's off, to offer a gain boost
-    // that's still independent of playback volume (the normalisation might not always be enough,
-    // e.g. if there's a rogue spike that's triggering the peak limit.)
-    hardlimiter.disconnect();
-    previewInputNode.disconnect()
-    previewInputNode.connect(limiterMakeup);
-  }
-  */
-
-  //limiterMakeup.connect(filterLo);
-
-  //filterLo.connect(filterHi);
-  //filterHi.connect(outputmerger);
-  //filterHi.connect(brenCrusher);
-  //brenCrusher.connect(volumeGain);
-
-  
   source.connect(outputmerger);
   outputmerger.connect(volumeGain);
 
   volumeGain.gain.setValueAtTime($scope.options.playbackvolume/100, audioContext.currentTime);
   volumeGain.connect(audioContext.destination);
 
-  // Preview chain END
-
+  // Some input defaults and globals
   var inputOctave = 1; // lower octave: 0, upper octave: 1
+  $scope.files = [];
+  $scope.decodedFiles = [];
 
   $scope.saveOptions = function () {
     localStorage.setItem('config', JSON.stringify($scope.options));
   };
 
-  $scope.files = [];
-  $scope.decodedFiles = [];
-
-
-
   document.ondragover = document.ondrop = function (ev) {
     ev.preventDefault();
   };
 
+  // Handle file and folder import events
   document.body.ondrop = function (ev) {
     $scope.loading = true;
     $scope.$apply();
     var files = ev.dataTransfer.files;
 
-    // show loader. Loading status cheked at end of each waveform draw...seems cheaper
-    // than an AJS watch?
-    //$scope.loading = true;
-
     // Is it a file or a directory?
     for (var i = 0, f; f = files[i]; i++) {
       if (!f.type) {
-        //It's a directory.
-        //console.log("it's a directory");
-
+        // It's a directory.        
+        // Parse the files and create a decoded file item for anything that's valid
         fs.readdir(f.path, function (err, dir) {
           for (var i = 0, path; path = dir[i]; i++) {
-            // do stuff with path
             var fileExt = path.substring(path.lastIndexOf('.')+1, path.length);
             if($scope.filetypes.indexOf(fileExt.toUpperCase()) > -1) {
               var promise = prepItem(files[0].path + pathslash + path);
@@ -310,7 +250,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           }
         });
       } else {
-        //It's a single file.
+        // It's a single file.
+        // If it's valid, create a decoded file item
         var fileExt = f.path.substring(f.path.lastIndexOf('.')+1, f.path.length);
         console.log(f.path);
         if($scope.filetypes.indexOf(fileExt.toUpperCase()) > -1) {
@@ -333,12 +274,9 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     ev.preventDefault();
   };
 
-  function pad(num, size) {
-    var s = num+"";
-    while (s.length < size) s = "0" + s;
-    return s;
-  }
+ 
 
+  // Before creating a decoded file item, gather a load of info about the file 
   function prepItem(path) {
     return new Promise(function(resolve, reject) {
       var inpath = path;
@@ -418,7 +356,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     })
   }
 
-  $scope.convertProms = function() {
+  // Asynchronously convert all file items and write exported files to disk
+  $scope.convertAll = function() {
     $scope.loading = true;
     var proms = [];
     for(var p in $scope.files) {
@@ -445,15 +384,45 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     })
   }
 
+  // Called every time we need to start a playback.
+  function constructRenderedBufferPlayer(idx, renbuf)
+  {
+    destroyBufferPlayer(idx).then(() => {
+      console.log("DESTROYED RenderedBufferPlayer");
 
-  function constructBufferPlayer(idx) {
-    // Called every time we need to start playback
-        //console.log(value);
+      if($scope.options.previewOutput)
+      {
+        $scope.loading = true;
+        $scope.$apply();
+        // Called every time we need to render a preview, then playback
+        $scope.processItem(false, idx, function(msg) {
+          console.log(msg);      
+        })
+        .then(
+          function(value) {
+            console.log("processItem done");
+            $scope.loading = false;
+            $scope.$apply();
+            constructBufferPlayer(idx); 
+          }
+        );
+      }
+      else
+      {
+        constructBufferPlayer(idx); 
+      }
+      
+    });
+  }
+
+  
+  function constructBufferPlayer(idx) {        
         
-        // Offline preview rendering is done; now play it back
-
         source = audioContext.createBufferSource();
         source.detune.value = playbackDetuneValue;
+
+        // If we're in previewOutput mode, the offline rendering has been done and we can hook it up.
+        // Otherwise we hook up the dry buffer.
         if($scope.options.previewOutput)
         {
           source.buffer = $scope.files[idx].renbuf;
@@ -538,37 +507,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   }
 
-
-  function constructRenderedBufferPlayer(idx, renbuf)
-  {
-    destroyBufferPlayer(idx).then(() => {
-      console.log("DESTROYED RenderedBufferPlayer");
-
-      if($scope.options.previewOutput)
-      {
-        $scope.loading = true;
-        $scope.$apply();
-        // Called every time we need to render a preview, then playback
-        $scope.processItem(false, idx, function(msg) {
-          console.log(msg);      
-        })
-        .then(
-          function(value) {
-            console.log("processItem done");
-            $scope.loading = false;
-            $scope.$apply();
-            constructBufferPlayer(idx); 
-          }
-        );
-      }
-      else
-      {
-        constructBufferPlayer(idx); 
-      }
-      
-    });
-  }
-
+  // Clean up players
   function destroyBufferPlayer(idx) {
     return new Promise((resolve, reject) => {
         if(nowPlaying) {
@@ -586,7 +525,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   }
 
-
+  // Load the imported file, creating a buffer we can use for playback and conversion as well as waveform display.
+  // Here we also gather more info about the file, and we do an initial peak-normalisation pass.
   function createDecodedItem(tmpfile) {
 
     return new Promise((resolve, reject) => {
@@ -662,12 +602,6 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
               $scope.files[i].outputsize = 8 * $scope.options.samplerate * buffer.duration;
               $scope.files[i].limiter_enabled = false;
 
-              //$scope.files[i].spectrum.connect(bitcrushNode);
-
-              //$scope.files[i].player.isPlaying = false;
-              //$scope.files[i].player.unplayed = true;
-
-
               // Set PT note to whatever the current global note is
               $scope.files[i].samplerate = $scope.options.samplerate;
               $scope.files[i].ptnote = $scope.options.ptnote;
@@ -701,12 +635,9 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
     })
 
-
-
-
   }
 
-
+  // Draw the static waveform image over which we'll draw trim markers and filter shelves
   var drawWaveform = function(i) {
     // Get the item's canvas so we can draw the waveform onto it
     // TO DO - I split this out in case I wanted to be able to update the
@@ -732,7 +663,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     }
   }
 
-
+  // Draw an animated scope for the currently-playing sound
   var drawAnalyzer = function() {
 
     var canvas = document.getElementById('spectrum-canvas');
@@ -787,7 +718,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   }
 
-
+  // Start an offline render of the output data, then either play it for preview purposes or write
+  // it to a file according to user options.
   $scope.processItem = function (doWrite, idx, cb) {
     return new Promise((resolve, reject) => {
 
@@ -819,7 +751,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
         offsource.buffer = $scope.files[idx].buffer;
 
         // OFFLINE DSP HAPPENS HERE
-
+        // Set up the effects chain graph:
         let ccompressor = offcontext.createDynamicsCompressor();
         let cgain = offcontext.createGain(); // compressor gain
         let filterPost = offcontext.createBiquadFilter();
@@ -925,7 +857,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
             }
           }
 
-
+          // Pad the output byte array if necessary to ensure an even number of bytes
           if(outData8bitArr.length % 2 == 0) {
             console.log("Nice even number: " + outData8bitArr.length)
           } else {
@@ -961,22 +893,22 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
           {
             if($scope.options.saveWav) {
               // Prep to save RIFF WAV
-              /*
-                1-4   "RIFF"
-                5-8   File size in UInt32. Data + 44b header
-                9-12    "WAVE"
-                13-16   "fmt " (includes trailing null)
-                17-20   16   Length of format data as listed above
-                21-22   1    Type of format (1 is PCM) - UInt16 integer
-                23-24   1    Number of channels (always mono for us!)
-                25-28        Sample rate - UInt32
-                29-32        Sample rate * 8 (bits per sample) * 1 (channel) / 8
-                33-34   1    (8 (bits per sample) * 1 (channel)) / 8
-                35-36   8    Bits per sample
-                37-40   "data"  Chunk header, marks start of data section
-                41-44        Data size
-  
-              */
+              //              
+              //  1-4   "RIFF"
+              //  5-8   File size in UInt32. Data + 44b header
+              //  9-12    "WAVE"
+              //  13-16   "fmt " (includes trailing null)
+              //  17-20   16   Length of format data as listed above
+              //  21-22   1    Type of format (1 is PCM) - UInt16 integer
+              //  23-24   1    Number of channels (always mono for us!)
+              //  25-28        Sample rate - UInt32
+              //  29-32        Sample rate * 8 (bits per sample) * 1 (channel) / 8
+              //  33-34   1    (8 (bits per sample) * 1 (channel)) / 8
+              //  35-36   8    Bits per sample
+              //  37-40   "data"  Chunk header, marks start of data section
+              //  41-44        Data size
+              //
+              
               var outSize = outDataBuf.length + 36;
   
               var outDataSigned = [];
@@ -1026,7 +958,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
               });
   
             } else {
-              // Now that we've got a buffer, I guess we can write it to 8SVX...
+              // Now that we've got a buffer, we can write it to 8SVX.
               // Work out the output filesize first: we need it both for the buffer allocation and for the FORM
   
               // FORM and outsize take up 8 bytes, and outsize states the length of the REST of the entire file:
@@ -1084,112 +1016,9 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   };
 
-
-
-  $scope.chooseOutputDir = function() {
-    console.log("choose button clicked");
-    //document.getElementById('outputDirChooser').click();
-    // get this elsewhere with document.getElementById('outputDirChooser').files[0].path
-
-    dialog.showOpenDialog({
-      properties: ['openDirectory'],
-      //defaultPath: ($scope.options.outputDir && $scope.options.outputDir.length > -1 ? $scope.options.outputDir : '')
-    }, (path) => {
-      console.log(path)
-      $scope.options.outputDir = path;
-    })
-
-  }
-
-  $scope.openOutputDir = function() {
-    shell.showItemInFolder($scope.options.outputDir + pathslash);
-  }
-
-  // TO DO 2020-05-06 This needs to produce an array of file paths, but we also need to take
-  // the first, strip the filename, and cache that directory path as inputDir (last-used
-  // file location)
-
- $scope.chooseInputFiles = function() {
-   $scope.loading = true;
-
-   console.log("choose input files button clicked");
-
-   dialog.showOpenDialog({
-     properties: ['openFile', 'multiSelections', 'createDirectory']
-   }).then(result => {
-     console.log(result.canceled)
-     console.log(result.filePaths)
-     if(result.canceled) {
-       $scope.loading = false;
-       $scope.$apply();
-     } else if(result.filePaths.length > 0) {
-       let paths = result.filePaths;
-       var cachepath = paths[0].substring(0, paths[0].lastIndexOf(pathslash) + 1)
-       console.log(cachepath)
-       // Save this as the last-used source directory
-       $scope.options.inputDir = cachepath;
-
-       // Process file[s]
-       for (var i = 0; i < paths.length; i++) {
-
-         var fileExt = paths[i].substring(paths[i].lastIndexOf('.')+1, paths[i].length);
-         console.log(paths[i]);
-         if($scope.filetypes.indexOf(fileExt.toUpperCase()) > -1) {
-           var promise = prepItem(paths[i]);
-           promise.then(function(tmpfile) {
-             console.log("Promise returned, did a thing");
-             console.log(tmpfile);
-             createDecodedItem(tmpfile).then(() => {
-               console.log("created decoded item");
-             }).catch((err) => {
-               console.log(err);
-             });
-           })
-         } else {
-           console.log("Nope, not loading ", fileExt);
-           $scope.loading = true;
-           //alert("Invalid input file - "+fileExt+"!\n\nAmigaPal outputs 8SVX files from any of the following input filetypes:\n\n.WAV\n.MP3\n.OGG\n.FLAC\n.AIFF\n.AIF\n.AAC")
-         }
-       }
-
-     } else {
-       $scope.options.inputDir = "";
-     }
-   }).catch(err => {
-     console.log(err);
-   })
-
- }
-
-
-  $scope.updateInfo = function(idx) {
-    // This is fired when the trim ranges are adjusted. We recalculate all of the length/filesize info and also draw the
-    // 64kb/128kb limit warnings if the option is enabled.
-    $scope.files[idx].trimrange = $scope.files[idx].trimend - $scope.files[idx].trimstart;
-    $scope.files[idx].outputsize = $scope.options.bitdepth * $scope.files[idx].samplerate * $scope.files[idx].trimrange / 8;
-
-    let file = $scope.files[idx];
-    /*
-    console.log("buffer LENGTH in sample frames: " + file.info.length);
-    console.log("buffer samplerate: " + file.info.samplerate)
-    console.log("buffer channelcount: " + file.info.channelcount);
-    console.log("buffer bit depth: " + file.info.bitdepth);
-    console.log("trimstart: " + file.trimstart);
-    console.log("trimend: " + file.trimend);
-    console.log("output size: " + file.outputsize);
-    */
-  }
-
-
-  function d2h(d) {
-    var s = (+d).toString(16);
-    if(s.length < 2) {
-        s = '0' + s;
-    }
-    return s;
-  }
-
-
+  // if 'Save mod' is enabled, we create a blank PT module and put up to 31 samples in it.
+  // The 128kb option applies exclusively to this feature, and decides whether the module's samples
+  // will be capped at 128kb (2.3F compatible) rather than 64kb (2.3D and almost all other versions)
   $scope.writeMod = function() {
 
     // Read the template mod
@@ -1337,6 +1166,100 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
   }
 
+  $scope.chooseOutputDir = function() {
+    console.log("choose button clicked");
+    //document.getElementById('outputDirChooser').click();
+    // get this elsewhere with document.getElementById('outputDirChooser').files[0].path
+
+    dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      //defaultPath: ($scope.options.outputDir && $scope.options.outputDir.length > -1 ? $scope.options.outputDir : '')
+    }, (path) => {
+      console.log(path)
+      $scope.options.outputDir = path;
+    })
+
+  }
+
+  $scope.openOutputDir = function() {
+    shell.showItemInFolder($scope.options.outputDir + pathslash);
+  }
+
+  // TO DO 2020-05-06 This needs to produce an array of file paths, but we also need to take
+  // the first, strip the filename, and cache that directory path as inputDir (last-used
+  // file location)
+
+ $scope.chooseInputFiles = function() {
+   $scope.loading = true;
+
+   console.log("choose input files button clicked");
+
+   dialog.showOpenDialog({
+     properties: ['openFile', 'multiSelections', 'createDirectory']
+   }).then(result => {
+     console.log(result.canceled)
+     console.log(result.filePaths)
+     if(result.canceled) {
+       $scope.loading = false;
+       $scope.$apply();
+     } else if(result.filePaths.length > 0) {
+       let paths = result.filePaths;
+       var cachepath = paths[0].substring(0, paths[0].lastIndexOf(pathslash) + 1)
+       console.log(cachepath)
+       // Save this as the last-used source directory
+       $scope.options.inputDir = cachepath;
+
+       // Process file[s]
+       for (var i = 0; i < paths.length; i++) {
+
+         var fileExt = paths[i].substring(paths[i].lastIndexOf('.')+1, paths[i].length);
+         console.log(paths[i]);
+         if($scope.filetypes.indexOf(fileExt.toUpperCase()) > -1) {
+           var promise = prepItem(paths[i]);
+           promise.then(function(tmpfile) {
+             console.log("Promise returned, did a thing");
+             console.log(tmpfile);
+             createDecodedItem(tmpfile).then(() => {
+               console.log("created decoded item");
+             }).catch((err) => {
+               console.log(err);
+             });
+           })
+         } else {
+           console.log("Nope, not loading ", fileExt);
+           $scope.loading = true;
+           //alert("Invalid input file - "+fileExt+"!\n\nAmigaPal outputs 8SVX files from any of the following input filetypes:\n\n.WAV\n.MP3\n.OGG\n.FLAC\n.AIFF\n.AIF\n.AAC")
+         }
+       }
+
+     } else {
+       $scope.options.inputDir = "";
+     }
+   }).catch(err => {
+     console.log(err);
+   })
+
+ }
+
+
+  $scope.updateInfo = function(idx) {
+    // This is fired when the trim ranges are adjusted. We recalculate all of the length/filesize info and also draw the
+    // 64kb/128kb limit warnings if the option is enabled.
+    $scope.files[idx].trimrange = $scope.files[idx].trimend - $scope.files[idx].trimstart;
+    $scope.files[idx].outputsize = $scope.options.bitdepth * $scope.files[idx].samplerate * $scope.files[idx].trimrange / 8;
+
+    let file = $scope.files[idx];
+    /*
+    console.log("buffer LENGTH in sample frames: " + file.info.length);
+    console.log("buffer samplerate: " + file.info.samplerate)
+    console.log("buffer channelcount: " + file.info.channelcount);
+    console.log("buffer bit depth: " + file.info.bitdepth);
+    console.log("trimstart: " + file.trimstart);
+    console.log("trimend: " + file.trimend);
+    console.log("output size: " + file.outputsize);
+    */
+  }
+
 
   $scope.applyToAll = function() {
     for (var i in $scope.files) {
@@ -1352,6 +1275,47 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     $scope.updateGlobalEffects();
   }
 
+  $scope.copyLimiterToAll = function(idx) {
+    for(var i in $scope.files) {
+      if(i != idx)
+      {
+        $scope.files[i].limiterMakeup = $scope.files[idx].limiterMakeup;
+        $scope.files[i].limiterThresh = $scope.files[idx].limiterThresh;
+        $scope.files[i].limiter_enabled = $scope.files[idx].limiter_enabled;        
+      }
+    }
+    $scope.updateGlobalEffects();
+  }
+
+  $scope.copyLoPassToAll = function(idx) {
+    for(var i in $scope.files) {
+      if(i != idx)
+      {
+        $scope.files[i].lowpassfrequency = $scope.files[idx].lowpassfrequency;
+      }
+    }
+    $scope.updateGlobalEffects();
+  }
+
+  $scope.copyHiPassToAll = function(idx) {
+    for(var i in $scope.files) {
+      if(i != idx)
+      {
+        $scope.files[i].highpassfrequency = $scope.files[idx].highpassfrequency;
+      }
+    }
+    $scope.updateGlobalEffects();
+  }
+
+  $scope.copyPTNoteToAll = function(idx) {
+    for(var i in $scope.files) {
+      if(i != idx)
+      {
+        $scope.files[i].ptnote = $scope.files[idx].ptnote;
+      }
+    }
+    $scope.updateGlobalEffects();
+  }
 
   $scope.removeFile = function(i) {
     destroyBufferPlayer(i);
@@ -1437,22 +1401,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
     $scope.options.outputToSource = !$scope.options.outputToSource;
   }
 
-
-  var toLin = function(value, width) {
-    var minp = 0;
-    var maxp = width;
-
-    var minv = Math.log(40);
-    var maxv = Math.log(20000);
-    var scale = (maxv-minv) / (maxp-minp);
-    return (Math.log(value)-minv) / scale + minp;
-  }
-
-  var drawFilters = function(i) {
-    filterLo.frequency.setValueAtTime($scope.files[$scope.selectedItem].lowpassfrequency, audioContext.currentTime);
-    filterHi.frequency.setValueAtTime($scope.files[$scope.selectedItem].highpassfrequency, audioContext.currentTime);
-
-    // Test - draw on canvas
+  // Draw the filter shelves on the canvas
+  var drawFilters = function(i) {    
     var cnv = $scope.files[i].filtercanvas;
     var ctx = cnv.getContext('2d');
     ctx.clearRect(0, 0, cnv.width, cnv.height);
@@ -1475,25 +1425,10 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
 
   $scope.updateGlobalEffects = function() {
+
     console.log("Updating global effects");
 
     $scope.options.samplerate = $scope.ptnotes[$scope.options.ptnote];
-
-    // update any graph rerouting
-
-    if($scope.options.limiter_enabled) {
-      previewInputNode.disconnect();
-      hardlimiter.disconnect();
-      previewInputNode.connect(hardlimiter);
-      hardlimiter.connect(limiterMakeup);
-    } else {
-      // Make the makeup gain available even when the limiter's off, to offer a gain boost
-      // that's still independent of playback volume (the normalisation might not always be enough,
-      // e.g. if there's a rogue spike that's triggering the peak limit.)
-      hardlimiter.disconnect();
-      previewInputNode.disconnect()
-      previewInputNode.connect(limiterMakeup);
-    }
 
     if($scope.files.length > 0) {
         for (var f in $scope.files) {
@@ -1503,18 +1438,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
         }
     }
 
-
-    // update waveform display for selectedItem
-
-
-    if($scope.files && $scope.files.length > 0) {
-      hardlimiter.threshold.setValueAtTime($scope.files[$scope.selectedItem].limiterThresh, audioContext.currentTime);
-      limiterMakeup.gain.setValueAtTime(1+$scope.files[$scope.selectedItem].limiterMakeup/100, audioContext.currentTime);
-    }
-
     volumeGain.gain.setValueAtTime($scope.options.playbackvolume/100, audioContext.currentTime);
-
-
   }
 
 
