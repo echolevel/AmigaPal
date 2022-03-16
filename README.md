@@ -30,7 +30,7 @@ Features:
 Changelog:
 ----------
 **16th March 2022 -**
-* Copy-to-all buttons added per item: these copy the current limiter, lo cut, hi cut and PT note values from the currently selected item to all other items in the list
+* Copy-to-all buttons added per item: these copy the current limiter, lo cut, hi cut and PT note values from the currently selected item to all other items in the list (they don't look pretty, yet, but they're there)
 * Tooltips have been added to lots of buttons to make things a bit clearer
 * Tick-boxes can now be toggled when clicking on the tick/x, rather than just the text label
 * Lots of tidy-up in the code, in case anyone else ever wants to mess with it
