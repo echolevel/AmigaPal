@@ -847,6 +847,8 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
 
 
           // Trimming any leading silence due to Web Audio offline context latency that we can't reliably calculate
+          // This is bad and I should feel bad. Disabled for now.
+          /*
           var startPos = 0;
           for(var s in outData8bitArr) {
             if(outData8bitArr[s] > 0) {
@@ -856,6 +858,7 @@ angular.module('mainApp', ['electangular', 'rzModule', 'ui.bootstrap']).config(f
               break;
             }
           }
+          */
 
           // Pad the output byte array if necessary to ensure an even number of bytes
           if(outData8bitArr.length % 2 == 0) {
